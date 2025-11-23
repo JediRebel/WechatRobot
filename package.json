@@ -1,0 +1,30 @@
+{
+  "name": "wechatrobot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@types/luxon": "^3.7.1",
+    "@types/minimist": "^1.2.5",
+    "@types/node": "^24.2.1",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "axios": "^1.11.0",
+    "cheerio": "^1.1.2",
+    "date-fns": "^4.1.0",
+    "dayjs": "^1.11.13",
+    "luxon": "^3.7.1",
+    "p-limit": "^7.0.0",
+    "puppeteer": "^24.15.0",
+    "rss-parser": "^3.13.0"
+  }
+}
