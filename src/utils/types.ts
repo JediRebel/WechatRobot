@@ -130,6 +130,8 @@ export interface RssScraperConfig {
   maxItems?: number;
   /** 给 dayjs 的日期格式白名单 */
   dateFormats?: string[];
+  /** 可选：请求头（部分源需要 Accept / UA 才能返回 feed） */
+  headers?: Record<string, string>;
 }
 
 export type AnyScraperConfig = HtmlScraperConfig | RssScraperConfig;
@@ -143,4 +145,3 @@ export function isHtmlConfig(c: AnyScraperConfig): c is HtmlScraperConfig {
 export function isRssConfig(c: AnyScraperConfig): c is RssScraperConfig {
   return c.kind === 'rss';
 }
-

@@ -200,6 +200,131 @@ export const SCRAPER_CONFIGS: AnyScraperConfig[] = [
   maxItems: 20,
 },
 
+  // Country 94 News
+  {
+    id: 'country94',
+    name: 'Country 94 (News)',
+    enabled: true,
+    kind: 'html',
+    url: 'https://www.country94.ca/category/news/',
+    baseUrl: 'https://www.country94.ca',
+    selectors: {
+      listItem: '.posts.items-wrapper .sc-list-item',
+      title: '.sc-list-title',
+      link: 'a', // listItem 本身是 <a>，link 兜底从自身 href 取
+      date: '.sc-time',
+      dateAttr: null,
+    },
+  areaTags: ['saint john'],
+  maxItems: 20,
+  detail: {
+    fetchWhenNoDate: true,
+    alwaysFetch: false,
+    concurrency: 3,
+  },
+},
+
+  // CTV Atlantic — New Brunswick
+  {
+    id: 'ctv-nb',
+    name: 'CTV Atlantic (New Brunswick)',
+    enabled: true,
+    kind: 'html',
+    url: 'https://atlantic.ctvnews.ca/new-brunswick',
+    baseUrl: 'https://atlantic.ctvnews.ca',
+    selectors: {
+      // 页面有 hero 与列表，均使用 <article>
+      listItem: 'article.b-media-item, article',
+      title: 'h2 a.c-link',
+      link: 'h2 a.c-link',
+      date: 'time.c-date',
+      dateAttr: 'datetime',
+    },
+    // 仅保留 NB 文章链接（两种前缀都包含）
+    linkIncludes: ['/atlantic/new-brunswick/article/', '/new-brunswick/article/'],
+    areaTags: ['new brunswick'],
+    maxItems: 20,
+    detail: {
+      fetchWhenNoDate: true,
+      alwaysFetch: false,
+      concurrency: 3,
+    },
+  },
+
+  // Government of NB — News Releases (EN)
+  {
+    id: 'gnb-news-en',
+    name: 'Government of NB News (EN)',
+    enabled: true,
+    kind: 'rss',
+    url: 'https://www2.gnb.ca/content/gnb/en/news/recent_news/_jcr_content/mainContent_par/newslist.rss1.html',
+    areaTags: ['new brunswick', 'government'],
+    maxItems: 30,
+  },
+
+  // UNB Newsroom
+  {
+    id: 'unb-news',
+    name: 'UNB Newsroom',
+    enabled: true,
+    kind: 'html',
+    url: 'https://blogs.unb.ca/newsroom/',
+    baseUrl: 'https://blogs.unb.ca/newsroom/',
+    selectors: {
+      // 列表页每篇文章标题是一个 h2 > a
+      listItem: 'h2',
+      title: 'a',
+      link: 'a',
+      // 列表页的日期示例：“Posted: Nov 21, 2025”
+      date: 'p:contains("Posted")',
+      dateAttr: null,
+    },
+    linkIncludes: ['/newsroom/'],
+    areaTags: ['unb', 'schools'],
+    maxItems: 20,
+    detail: {
+      fetchWhenNoDate: true,
+      alwaysFetch: true, // 详情页兜底解析 “Posted:” 日期
+      concurrency: 3,
+    },
+  },
+
+  // Horizon Health — News Releases
+  {
+    id: 'horizon-health',
+    name: 'Horizon Health News Releases',
+    enabled: true,
+    kind: 'html',
+    url: 'https://horizonnb.ca/category/news-releases/',
+    baseUrl: 'https://horizonnb.ca',
+    selectors: {
+      listItem: 'article.post',
+      title: 'h2.entry-title a',
+      link: 'h2.entry-title a',
+      date: 'time.entry-date.published',
+      dateAttr: 'datetime',
+    },
+    linkIncludes: ['/news-releases/'],
+    areaTags: ['health', 'horizon'],
+    maxItems: 20,
+    detail: {
+      fetchWhenNoDate: true,
+      alwaysFetch: false,
+      concurrency: 3,
+    },
+  },
+
+  // RCMP New Brunswick — RSS（Drupal feed）
+  {
+    id: 'rcmp-nb',
+    name: 'RCMP New Brunswick',
+    enabled: true,
+    kind: 'html', // 实际用自定义爬虫（DataTables 动态），测试入口会特判 id
+    url: 'https://rcmp.ca/en/nb/news',
+    areaTags: ['rcmp', 'new brunswick'],
+    maxItems: 30,
+  },
+
 
 
     // DSFS（法语学区）— 直接从列表页拿标题 + 日期
@@ -256,3 +381,8 @@ export const SCRAPER_CONFIGS: AnyScraperConfig[] = [
     },
   },
 ];
+
+// Programmer notes (future sources to consider, no config yet):
+// - Fredericton news: https://www.fredericton.ca/en/news
+// - City of Moncton news: https://www.moncton.ca/news
+// - Dieppe news: https://www.dieppe.ca/en/news-and-events/news.aspx

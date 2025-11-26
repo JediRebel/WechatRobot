@@ -12,6 +12,7 @@ import {
   ScrapeOptions,
 } from './utils/types';
 import { scrapeByConfig as scrapeHtml } from './scrapers/genericScraper';
+import { scrape as scrapeRcmp } from './scrapers/rcmp';
 import Parser from 'rss-parser';
 
 // ========== 解析命令行参数 ==========
@@ -78,7 +79,11 @@ const rssParser = new Parser();
   for (const config of configsToTest) {
     try {
       if (isHtmlConfig(config)) {
-        await testHtml(config, baseOpts);
+        if (config.id === 'rcmp-nb') {
+          await testRcmp(baseOpts);
+        } else {
+          await testHtml(config, baseOpts);
+        }
       } else if (isRssConfig(config)) {
         await testRss(config, baseOpts);
       } else {
@@ -117,7 +122,8 @@ async function testRss(config: RssScraperConfig, opts: ScrapeOptions) {
   console.log(`[${config.id}] Fetch RSS: ${config.url}`);
 
   try {
-    const feed = await rssParser.parseURL(config.url);
+    const parser = config.headers ? new Parser({ headers: config.headers }) : rssParser;
+    const feed = await parser.parseURL(config.url);
 
     let items = feed.items || [];
 
@@ -156,4 +162,13 @@ async function testRss(config: RssScraperConfig, opts: ScrapeOptions) {
       (e as Error).message,
     );
   }
+}
+
+// ========== RCMP 特殊爬虫 ==========
+async function testRcmp(opts: ScrapeOptions) {
+  console.log('🔍 Testing RCMP NB (custom dynamic scraper)');
+  const items = await scrapeRcmp(opts);
+  const show = Math.min(3, items.length);
+  console.log(`✅ [rcmp-nb] got ${items.length} items. Showing first ${show}:`);
+  console.dir(items.slice(0, show), { depth: null });
 }

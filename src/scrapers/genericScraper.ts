@@ -84,12 +84,17 @@ function dedupeByLink(rows: RawRow[]): RawRow[] {
 function parseDateLoose(input?: string): Date | undefined {
   if (!input) return undefined;
   const s = input
+    .replace(/^(posted|published)\s*:\s*/i, '')
     .replace(/\s+at\s+/i, ' ')
     .replace(/(\d+)(st|nd|rd|th)/gi, '$1')
     .replace(/,+/g, ',')
     .trim();
   const d = dayjs(s);
-  return d.isValid() ? d.toDate() : undefined;
+  if (d.isValid()) return d.toDate();
+
+  // 兜底：让原生 Date 再尝试一次（例如 "24 November 2025"）
+  const native = new Date(s);
+  return Number.isNaN(native.getTime()) ? undefined : native;
 }
 
 /** 从详情页尽量找日期 */
@@ -126,6 +131,14 @@ function extractDetailDate($: cheerio.CheerioAPI): Date | undefined {
   for (const s of candidates) {
     const d = parseDateLoose(s);
     if (d) return d;
+  }
+
+  // 4) 兜底：文中出现 "Posted: <日期>" 或 "Published: <日期>"
+  const textNeedle = $('body').text();
+  const match = textNeedle.match(/(?:Posted|Published)\\s*:\\s*([A-Za-z]{3,9}\\.?\\s+\\d{1,2},\\s*\\d{4})/i);
+  if (match && match[1]) {
+    const dd = parseDateLoose(match[1]);
+    if (dd) return dd;
   }
 
   return undefined;
@@ -201,13 +214,22 @@ export async function scrapeByConfig(
     if (sel.link) {
       const $a = $li.find(sel.link).first() as Cheerio<Element>;
       href = ($a.attr('href') || '').trim();
+      // 若 listItem 本身是 <a>，则用自身 href 兜底
+      if (!href) href = ($li.attr('href') || '').trim();
+    } else {
+      // 当未配置 link 选择器时，尝试直接读取 listItem 的 href
+      href = ($li.attr('href') || '').trim();
     }
     href = absUrl(href, config.baseUrl);
 
     // date
     let d: Date | undefined;
     if (sel.date) {
-      const $d = $li.find(sel.date).first() as Cheerio<Element>;
+      let $d = $li.find(sel.date).first() as Cheerio<Element>;
+      // 若当前节点内未找到日期，尝试查找后续兄弟（兼容列表结构中日期在紧随 h2 后的场景）
+      if (!$d.length) {
+        $d = $li.nextAll(sel.date).first() as Cheerio<Element>;
+      }
       if ($d.length) {
         const raw =
           sel.dateAttr === undefined || sel.dateAttr === null
