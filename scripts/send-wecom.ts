@@ -11,6 +11,7 @@
 import fs from 'fs';
 import path from 'path';
 import minimist from 'minimist';
+import 'dotenv/config';
 
 const argv = minimist(process.argv.slice(2), {
   string: ['file', 'webhook'],
