@@ -53,34 +53,50 @@ function loadNews() {
 }
 
 async function callOpenAI(prompt: string) {
-  const res = await fetch(`${apiBase}/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: argv.model,
-      max_tokens: Number(argv.maxTokens) || 1500,
-      messages: [
-        {
-          role: 'system',
-          content:
-            '你是一个新闻编辑助手，需按要求输出中文微信消息列表。',
-        },
-        { role: 'user', content: prompt },
-      ],
-    }),
-  });
+  const maxAttempts = 3;
+  let lastErr: Error | undefined;
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`OpenAI API error ${res.status}: ${text}`);
+  for (let i = 1; i <= maxAttempts; i++) {
+    try {
+      const res = await fetch(`${apiBase}/v1/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: argv.model,
+          max_tokens: Number(argv.maxTokens) || 1500,
+          messages: [
+            {
+              role: 'system',
+              content:
+                '你是一个新闻编辑助手，需按要求输出中文微信消息列表。',
+            },
+            { role: 'user', content: prompt },
+          ],
+        }),
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`OpenAI API error ${res.status}: ${text}`);
+      }
+      const json = await res.json();
+      const content = json.choices?.[0]?.message?.content;
+      if (!content) throw new Error('OpenAI API 未返回内容');
+      return content as string;
+    } catch (err: any) {
+      lastErr = err instanceof Error ? err : new Error(String(err));
+      if (i < maxAttempts) {
+        // 简单退避
+        await new Promise((r) => setTimeout(r, 1500 * i));
+        continue;
+      }
+    }
   }
-  const json = await res.json();
-  const content = json.choices?.[0]?.message?.content;
-  if (!content) throw new Error('OpenAI API 未返回内容');
-  return content as string;
+
+  throw lastErr ?? new Error('OpenAI API failed');
 }
 
 async function main() {
@@ -89,7 +105,7 @@ async function main() {
 请处理以下 JSON 新闻列表，严格按以下规则输出（只输出结果，多行文本，每行一条新闻，不要任何前言/解释/括号/引号/列表符号/JSON）：
 0) 禁止输出任何提示、前言或说明，不要写“缺少…因此只包含…”，直接输出结果条目。
 1) 仅保留有数据的源；这些都是过去24小时的新闻。
-2) 每条：标题翻译为中文且 ≤15字；概要为中文且 ≤60字且不能为空；概要不能仅重述标题或简单加标点，必须补充不同要点（如动作、影响、地点等），必要时可根据标题推断补充；概要必须全中文，不得出现英文标题或前缀；保留原文链接。
+2) 每条：标题翻译为中文且 ≤15字；概要为中文且 ≤60字且不能为空；概要不能仅重述标题或简单加标点，必须补充不同要点（如动作、影响、地点等），必要时可根据标题推断补充；概要必须全中文，不得出现英文标题或前缀；保留原文链接。如遇暴力/违法/敏感信息，请用中性、克制的表述，避免触发拒绝。
 3) 去重：按事件相似度去掉重复，优先级：教育局 > RCMP > 三个城市官方 > UNB > NB Power > CTV > 其他。
 4) 输出格式（每行一条，用一个空格分隔）：标题（≤15字） 概要（≤60字） 链接。注意不要输出“<空格>”等占位符字样。
 5) 总长度≤1500字，超出则停止添加下一条，不截断单条。

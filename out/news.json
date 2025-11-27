@@ -89,6 +89,12 @@
     "name": "Government of NB News (EN)",
     "items": [
       {
+        "title": "New provincial court judges appointed",
+        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0538.html",
+        "dateISO": "2025-11-27T19:07:00.000Z",
+        "source": "gnb-news-en"
+      },
+      {
         "title": "Edmundston attracts investment from Swiss bakery company",
         "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0537.html",
         "dateISO": "2025-11-27T14:33:00.000Z",
@@ -105,7 +111,14 @@
   {
     "sourceId": "unb-news",
     "name": "UNB Newsroom",
-    "items": []
+    "items": [
+      {
+        "title": "UNB's McKenna Institute announces cybersecurity training program for Indigenous talent in partnership with JEDI, Thales",
+        "link": "https://blogs.unb.ca/newsroom/2025/11/cybersecurity-training-program.php",
+        "dateISO": "2025-11-27T04:00:00.000Z",
+        "source": "unb-news"
+      }
+    ]
   },
   {
     "sourceId": "horizon-health",

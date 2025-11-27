@@ -12,3 +12,4 @@ pnpm-debug.log*
 *.tsbuildinfo
 coverage/
 tmp/
+out/
