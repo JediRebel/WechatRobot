@@ -18,9 +18,8 @@ async function main() {
     }
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const json = path.join('out', `${today}-news.json`);
-  const post = path.join('out', `${today}-post.txt`);
+  const json = path.join('out', 'news.json');
+  const post = path.join('out', 'post.txt');
 
   // 1) 抓取过去 24 小时新闻
   run(

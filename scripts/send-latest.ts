@@ -12,17 +12,9 @@ async function main() {
     process.exit(1);
   }
 
-  const dateSlug = new Date().toISOString().slice(0, 10);
-  const todayPost = path.resolve(`out/${dateSlug}-post.txt`);
-  const fallback = path.resolve('out/post.txt');
-
-  let filePath = '';
-  if (fs.existsSync(todayPost)) {
-    filePath = todayPost;
-  } else if (fs.existsSync(fallback)) {
-    filePath = fallback;
-  } else {
-    console.error('❌ 未找到可发送的文案文件（out/YYYY-MM-DD-post.txt 或 out/post.txt）');
+  const filePath = path.resolve('out/post.txt');
+  if (!fs.existsSync(filePath)) {
+    console.error('❌ 未找到可发送的文案文件（out/post.txt）');
     process.exit(1);
   }
 

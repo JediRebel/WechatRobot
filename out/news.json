@@ -2,7 +2,14 @@
   {
     "sourceId": "city-sj",
     "name": "City of Saint John",
-    "items": []
+    "items": [
+      {
+        "title": "Flash Ice Sale — Discounted Ice Slots Available from December 10th to 23rd",
+        "link": "https://saintjohn.ca/en/news-and-notices/flash-ice-sale-discounted-ice-slots-available-december-10th-23rd",
+        "dateISO": "2025-11-26T16:41:44.000Z",
+        "source": "city-sj"
+      }
+    ]
   },
   {
     "sourceId": "rothesay",
@@ -12,14 +19,7 @@
   {
     "sourceId": "quispamsis",
     "name": "Town of Quispamsis",
-    "items": [
-      {
-        "title": "Peat Drive entrance to Cedar Ridge Boulevard closed Tuesday, Nov. 25Town of Quispamsis General Notices News Road Construction Notices",
-        "link": "https://www.quispamsis.ca/news-and-notices/posts/peat-drive-entrance-to-cedar-ridge-boulevard-closed-tuesday-nov-25/",
-        "dateISO": "2025-11-25T04:00:00.000Z",
-        "source": "quispamsis"
-      }
-    ]
+    "items": []
   },
   {
     "sourceId": "nb-power",
@@ -29,20 +29,7 @@
   {
     "sourceId": "vitalite",
     "name": "Vitalité Health Network",
-    "items": [
-      {
-        "title": "Improved Access to Rheumatology Care for the Pabineau Community",
-        "link": "https://www.vitalitenb.ca/en/news/improved-access-to-rheumatology-care-for-the-pabineau-community",
-        "dateISO": "2025-11-25T00:03:59.000Z",
-        "source": "vitalite"
-      },
-      {
-        "title": "Temporary reduction in walk-in service at the blood collection area at Chaleur Regional Hospital",
-        "link": "https://www.vitalitenb.ca/en/news/temporary-reduction-in-walk-in-service-at-the-blood-collection-area-at-chaleur-regional-hospital-2",
-        "dateISO": "2025-11-24T18:57:56.000Z",
-        "source": "vitalite"
-      }
-    ]
+    "items": []
   },
   {
     "sourceId": "country94",
@@ -54,45 +41,45 @@
     "name": "CTV Atlantic (New Brunswick)",
     "items": [
       {
-        "title": "Farmers will lobby Ottawa for $50K guaranteed annual income pilot program",
-        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/farmers-will-lobby-ottawa-for-50k-guaranteed-annual-income-pilot-program/",
-        "dateISO": "2025-11-25T09:54:25.495Z",
+        "title": "Contraband, unauthorized items worth $70K seized from N.B. prison",
+        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/contraband-unauthorized-items-worth-70k-seized-from-nb-prison/",
+        "dateISO": "2025-11-26T21:17:29.223Z",
         "source": "ctv-nb"
       },
       {
-        "title": "Thieves smash into front of store before trying to steal ATM in Port Elgin, N.B.",
-        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/residents-concerned-over-break-in-at-port-elgin-nb-convenience-store/",
-        "dateISO": "2025-11-24T21:47:12.129Z",
+        "title": "Concerns raised over Saint John correctional centre after wanted man is accused of murder",
+        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/unlawfully-at-large-man-accused-of-murder-raises-questions-over-saint-john-correctional-centre/",
+        "dateISO": "2025-11-26T19:47:05.083Z",
         "source": "ctv-nb"
       },
       {
-        "title": "New daycare celebrates grand opening in Saint John",
-        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/new-daycare-celebrates-grand-opening-in-saint-john/",
-        "dateISO": "2025-11-24T21:22:56.130Z",
+        "title": "Saint John police arrest two people in connection with fatal shooting",
+        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/saint-john-police-arrest-two-people-in-connection-with-fatal-shooting/",
+        "dateISO": "2025-11-26T18:15:10.725Z",
         "source": "ctv-nb"
       },
       {
-        "title": "New Brunswick supports expansion of specialty health-care company",
-        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/new-brunswick-supports-expansion-of-specialty-health-care-company/",
-        "dateISO": "2025-11-24T20:49:12.833Z",
+        "title": "Missing American woman found dead, foul play not suspected: N.B. RCMP",
+        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/missing-american-woman-found-dead-foul-play-not-suspected-nb-rcmp/",
+        "dateISO": "2025-11-26T16:51:50.229Z",
         "source": "ctv-nb"
       },
       {
-        "title": "New Brunswick man, 62, dies after vehicle strikes bridge, lands in brook",
-        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/new-brunswick-man-62-dies-after-vehicle-strikes-bridge-lands-in-brook/",
-        "dateISO": "2025-11-24T19:46:55.249Z",
+        "title": "N.B. spends $2M to support upgrades to Moncton cannabis facility",
+        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/nb-spends-93m-to-support-upgrades-to-moncton-cannabis-facility/",
+        "dateISO": "2025-11-26T16:45:20.727Z",
         "source": "ctv-nb"
       },
       {
-        "title": "N.B. RCMP seeking help following break, enter and theft",
-        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/nb-rcmp-seeking-help-following-break-enter-and-theft/",
-        "dateISO": "2025-11-24T19:06:37.913Z",
+        "title": "Fredericton police to expand to city’s newly annexed areas beginning next month",
+        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/fredericton-police-to-expand-to-citys-newly-annexed-areas-beginning-next-month/",
+        "dateISO": "2025-11-26T14:43:23.434Z",
         "source": "ctv-nb"
       },
       {
-        "title": "Five people charged in connection with 2019 double-homicide in Dieppe, N.B.",
-        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/five-people-charged-in-connection-with-2019-double-homicide-in-dieppe-nb/",
-        "dateISO": "2025-11-24T15:26:28.579Z",
+        "title": "N.B. man charged with impaired, dangerous driving in fatal 2024 crash",
+        "link": "https://atlantic.ctvnews.ca/atlantic/new-brunswick/article/nb-man-charged-with-impaired-dangerous-driving-in-fatal-2024-crash/",
+        "dateISO": "2025-11-26T14:41:48.659Z",
         "source": "ctv-nb"
       }
     ]
@@ -102,153 +89,15 @@
     "name": "Government of NB News (EN)",
     "items": [
       {
-        "title": "International Day for the Elimination of Violence against Women",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0532.html",
-        "dateISO": "2025-11-25T17:42:00.000Z",
+        "title": "Edmundston attracts investment from Swiss bakery company",
+        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0537.html",
+        "dateISO": "2025-11-27T14:33:00.000Z",
         "source": "gnb-news-en"
       },
       {
-        "title": "Government supports further efforts to improve trade within Canada",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0531.html",
-        "dateISO": "2025-11-25T17:41:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "New collaborative care clinic in St. Stephen",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0530.html",
-        "dateISO": "2025-11-25T17:19:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Specialty health-care company growing with government support",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0529.html",
-        "dateISO": "2025-11-24T17:14:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "New agreement to improve access to primary care, help recruitment",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0526.html",
-        "dateISO": "2025-11-20T17:48:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Consumer advocate for insurance appointed",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0524.html",
-        "dateISO": "2025-11-19T15:41:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Public consultations on provincewide organic waste program",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0523.html",
-        "dateISO": "2025-11-19T14:12:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Advisory council on homelessness holds first meeting",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0522.html",
-        "dateISO": "2025-11-19T12:54:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Implementation of psychiatry resource strategy now underway",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0521.html",
-        "dateISO": "2025-11-18T18:24:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Holt meets with eastern Canadian premiers and New England governors",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0520.html",
-        "dateISO": "2025-11-17T18:35:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Investment aims to make tourism sector more resilient",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0519.html",
-        "dateISO": "2025-11-17T16:25:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Expansion of Nursing Homes Without Walls Program",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0518.html",
-        "dateISO": "2025-11-17T15:57:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Second-quarter financial results for 2025-26",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0515.html",
-        "dateISO": "2025-11-14T17:21:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Alert Ready test to be conducted on Nov. 19",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0514.html",
-        "dateISO": "2025-11-14T17:04:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "New Brunswick Sports Hall of Fame announces 2026 inductees",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0513.html",
-        "dateISO": "2025-11-14T16:30:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Sisson mine makes new nation-building projects list",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0512.html",
-        "dateISO": "2025-11-13T20:07:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Wood products manufacturer investing in productivity, growth",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0511.html",
-        "dateISO": "2025-11-13T19:45:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Government supports thermal testing company’s market diversification efforts",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0508.html",
-        "dateISO": "2025-11-12T20:03:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Expansion of collaborative care team in Edmundston",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0507.html",
-        "dateISO": "2025-11-12T18:22:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "King’s counsel appointments named",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0506.html",
-        "dateISO": "2025-11-12T16:59:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Funding to extend life of Moncton seniors housing complex",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0504.html",
-        "dateISO": "2025-11-12T15:04:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Air quality approval renewed for Lake Utopia Paper",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0503.html",
-        "dateISO": "2025-11-12T14:08:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Support for AI adoption and workforce development in contact centre industry",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0500.html",
-        "dateISO": "2025-11-10T18:00:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Winter resources available for people experiencing homelessness",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0498.html",
-        "dateISO": "2025-11-07T17:19:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Support for digital health company’s market expansion",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0497.html",
-        "dateISO": "2025-11-07T17:10:00.000Z",
+        "title": "Pickup arrangements available for Social Development payments",
+        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0536.html",
+        "dateISO": "2025-11-27T13:15:00.000Z",
         "source": "gnb-news-en"
       }
     ]
@@ -256,14 +105,7 @@
   {
     "sourceId": "unb-news",
     "name": "UNB Newsroom",
-    "items": [
-      {
-        "title": "UNB student launches study app aimed at building connections",
-        "link": "https://blogs.unb.ca/newsroom/2025/11/owen-yesuf.php",
-        "dateISO": "2025-11-25T04:00:00.000Z",
-        "source": "unb-news"
-      }
-    ]
+    "items": []
   },
   {
     "sourceId": "horizon-health",
