@@ -89,6 +89,12 @@
     "name": "Government of NB News (EN)",
     "items": [
       {
+        "title": "Edmundston attracts investment from Swiss bakery company",
+        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0537.html",
+        "dateISO": "2025-11-27T14:33:00.000Z",
+        "source": "gnb-news-en"
+      },
+      {
         "title": "Pickup arrangements available for Social Development payments",
         "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0536.html",
         "dateISO": "2025-11-27T13:15:00.000Z",
@@ -230,12 +236,6 @@
         "title": "Funding to extend life of Moncton seniors housing complex",
         "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0504.html",
         "dateISO": "2025-11-12T15:04:00.000Z",
-        "source": "gnb-news-en"
-      },
-      {
-        "title": "Air quality approval renewed for Lake Utopia Paper",
-        "link": "https://www2.gnb.ca:443/content/gnb/en/news/news_release.2025.11.0503.html",
-        "dateISO": "2025-11-12T14:08:00.000Z",
         "source": "gnb-news-en"
       }
     ]
