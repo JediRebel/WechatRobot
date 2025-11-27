@@ -9,6 +9,11 @@ set -euo pipefail
 #   chmod +x scripts/run-daily.sh
 #   ./scripts/run-daily.sh
 
+# 确保在项目根目录运行（基于脚本所在目录计算，无需硬编码绝对路径）
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+cd "$ROOT_DIR"
+
 # Load .env if present
 if [ -f .env ]; then
   set -a
@@ -17,9 +22,8 @@ if [ -f .env ]; then
   set +a
 fi
 
-TODAY=$(date +%F)
-JSON="out/${TODAY}-news.json"
-POST="out/${TODAY}-post.txt"
+JSON="out/news.json"
+POST="out/post.txt"
 
 echo "== Fetching news (past 24h) to ${JSON} =="
 npx ts-node -r tsconfig-paths/register -r dotenv/config src/test-all.ts \
