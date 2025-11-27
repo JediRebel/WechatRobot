@@ -118,7 +118,7 @@ async function run() {
 
 // ========== HTML ==========
 async function testHtml(config: HtmlScraperConfig, opts: ScrapeOptions) {
-  console.log(`🔍 Testing HTML source: [${config.id}] ${config.name}`);
+  console.log(`🔍 正在爬取: [${config.id}] ${config.name}`);
   const items = await scrapeHtml(config, opts);
   const show = Math.min(showLimit, items.length);
   console.log(`✅ [${config.id}] got ${items.length} items. Showing first ${show}:`);
@@ -137,13 +137,26 @@ async function testHtml(config: HtmlScraperConfig, opts: ScrapeOptions) {
 
 // ========== RSS ==========
 async function testRss(config: RssScraperConfig, _opts: ScrapeOptions) {
-  console.log(`🔍 Testing RSS source: [${config.id}] ${config.name}`);
-  console.log(`[${config.id}] Fetch RSS: ${config.url}`);
+  console.log(`🔍 正在爬取 RSS: [${config.id}] ${config.name}`);
+  console.log(`[${config.id}] 拉取 RSS: ${config.url}`);
   const parser = config.headers ? new Parser({ headers: config.headers }) : rssParser;
 
   try {
     const feed = await parser.parseURL(config.url);
     let items = feed.items || [];
+
+    // 时间窗过滤（若指定 windowHours 且未忽略时间窗）
+    if (!_opts.ignoreWindow && _opts.windowHours) {
+      const now = Date.now();
+      const windowMs = _opts.windowHours * 3600 * 1000;
+      items = items.filter((it) => {
+        const d = it.isoDate || it.pubDate;
+        if (!d) return false;
+        const t = Date.parse(d);
+        if (Number.isNaN(t)) return false;
+        return now - t <= windowMs;
+      });
+    }
 
     if (config.maxItems && items.length > config.maxItems) {
       items = items.slice(0, config.maxItems);

@@ -10,6 +10,14 @@ function run(cmd: string) {
 }
 
 async function main() {
+  const requiredEnv = ['OPENAI_API_KEY', 'WECOM_WEBHOOK'] as const;
+  for (const key of requiredEnv) {
+    if (!process.env[key]) {
+      console.error(`❌ Missing env: ${key}`);
+      process.exit(1);
+    }
+  }
+
   const today = new Date().toISOString().slice(0, 10);
   const json = path.join('out', `${today}-news.json`);
   const post = path.join('out', `${today}-post.txt`);
