@@ -38,12 +38,19 @@ if (!content) {
 }
 
 async function send() {
+  const dateLabel = new Date().toLocaleDateString('zh-CN', {
+    timeZone: 'America/Halifax',
+    month: 'numeric',
+    day: 'numeric',
+  });
+  const finalContent = `早上好！今天是${dateLabel}，过去24小时本地要闻如下：\n${content}`;
+
   const res = await fetch(webhook, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       msgtype: 'text',
-      text: { content },
+      text: { content: finalContent },
     }),
   });
   const data = await res.json().catch(() => ({}));

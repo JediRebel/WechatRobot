@@ -1,4 +1,4 @@
-// scripts/test-webhook.ts
+// scripts/send-latest.ts
 // 作用：直接发送当天生成的新闻文案（out/YYYY-MM-DD-post.txt）到企业微信。
 import 'dotenv/config';
 import axios from 'axios';
@@ -12,8 +12,8 @@ async function main() {
     process.exit(1);
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const todayPost = path.resolve(`out/${today}-post.txt`);
+  const dateSlug = new Date().toISOString().slice(0, 10);
+  const todayPost = path.resolve(`out/${dateSlug}-post.txt`);
   const fallback = path.resolve('out/post.txt');
 
   let filePath = '';
@@ -32,12 +32,12 @@ async function main() {
     process.exit(1);
   }
 
-  const today = new Date().toLocaleDateString('zh-CN', {
+  const dateLabel = new Date().toLocaleDateString('zh-CN', {
     timeZone: 'America/Halifax',
     month: 'numeric',
     day: 'numeric',
   });
-  const finalContent = `早上好！今天是${today}，过去24小时本地要闻如下：\n${content}`;
+  const finalContent = `早上好！今天是${dateLabel}，过去24小时本地要闻如下：\n${content}`;
 
   const payload = {
     msgtype: 'text',
