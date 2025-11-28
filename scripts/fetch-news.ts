@@ -23,7 +23,7 @@ async function main() {
 
   // 1) 抓取过去 24 小时新闻
   run(
-    `npx ts-node -r tsconfig-paths/register -r dotenv/config src/test-all.ts ` +
+    `npx ts-node -r tsconfig-paths/register -r dotenv/config scripts/fetch-all.ts ` +
       `--windowHours 24 --json ${json} --show 999`,
   );
 
