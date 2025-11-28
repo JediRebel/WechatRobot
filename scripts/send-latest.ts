@@ -1,5 +1,5 @@
 // scripts/send-latest.ts
-// 作用：直接发送当天生成的新闻文案（out/YYYY-MM-DD-post.txt）到企业微信。
+// 手动发送当前生成的文案（out/post.txt）到企业微信，便于临时验证发送链路。
 import 'dotenv/config';
 import axios from 'axios';
 import fs from 'fs';
@@ -8,7 +8,7 @@ import path from 'path';
 async function main() {
   const webhook = process.env.WECOM_WEBHOOK;
   if (!webhook) {
-    console.error('WECOM_WEBHOOK is not set in .env');
+    console.error('❌ WECOM_WEBHOOK is not set in .env');
     process.exit(1);
   }
 
@@ -31,15 +31,11 @@ async function main() {
   });
   const finalContent = `早上好！今天是${dateLabel}，过去24小时本地要闻如下：\n${content}`;
 
-  const payload = {
-    msgtype: 'text',
-    text: {
-      content: finalContent,
-    },
-  };
-
   try {
-    const res = await axios.post(webhook, payload);
+    const res = await axios.post(webhook, {
+      msgtype: 'text',
+      text: { content: finalContent },
+    });
     console.log(`✅ 已发送文案: ${filePath}`);
     console.log('WeCom response:', res.data);
   } catch (err: any) {

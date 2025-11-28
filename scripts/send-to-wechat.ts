@@ -1,11 +1,11 @@
-// scripts/send-wecom.ts
+// scripts/send-to-wechat.ts
 /* eslint-disable no-console */
 /**
  * 将文本发送到企业微信机器人 Webhook。
  *
  * 使用示例：
  *   WECOM_WEBHOOK=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx \
- *   npx ts-node scripts/send-wecom.ts --file out/post.txt
+ *   npx ts-node scripts/send-to-wechat.ts --file out/post.txt
  */
 
 import fs from 'fs';

@@ -1,4 +1,4 @@
-// scripts/prepare-post.ts
+// scripts/summarize-news.ts
 /* eslint-disable no-console */
 /**
  * 读取抓取结果 JSON（由 test-all.ts 生成），调用 OpenAI 总结/翻译/去重，输出最终文案。

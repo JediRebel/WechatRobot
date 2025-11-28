@@ -1,4 +1,4 @@
-// scripts/run-all.ts
+// scripts/fetch-news.ts
 // 一键完成：抓取 -> 生成文案 -> 发送企业微信
 import 'dotenv/config';
 import { execSync } from 'child_process';
@@ -29,13 +29,13 @@ async function main() {
 
   // 2) 生成中文文案
   run(
-    `npx ts-node -r dotenv/config scripts/prepare-post.ts ` +
+    `npx ts-node -r dotenv/config scripts/summarize-news.ts ` +
       `--input ${json} --output ${post} --model gpt-4o-mini`,
   );
 
   // 3) 发送到企业微信
   run(
-    `npx ts-node -r dotenv/config scripts/send-wecom.ts ` +
+    `npx ts-node -r dotenv/config scripts/send-to-wechat.ts ` +
       `--file ${post}`,
   );
 }
