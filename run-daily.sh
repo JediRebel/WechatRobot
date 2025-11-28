@@ -1,18 +1,27 @@
 #!/bin/bash
-# Daily wrapper: load nvm, enter project, log, run full pipeline
+# Daily wrapper: enter project, optional nvm, log, run full pipeline
+set -euo pipefail
 
-# 加载 nvm（按需调整路径）
-export NVM_DIR="${NVM_DIR:-/root/.nvm}"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+# 基于脚本位置推导项目根目录
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$ROOT_DIR" || exit 1
 
-# 进入项目目录（按需调整路径）
-cd /root/WechatRobot || exit 1
+# 可选：加载 nvm（如需固定 Node 版本，在服务器调整路径）
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+  # nvm 可选，失败不终止
+  set +e
+  \. "$NVM_DIR/nvm.sh"
+  nvm use --silent >/dev/null 2>&1 || true
+  set -e
+fi
 
-# 确保日志目录存在
-mkdir -p logs
+# 日志文件（同时输出到终端和文件）
+mkdir -p "$ROOT_DIR/logs"
+LOG_FILE="$ROOT_DIR/logs/daily.log"
+exec > >(tee -a "$LOG_FILE") 2>&1
 
-# 记录触发时间
-echo "[$(date '+%Y-%m-%d %H:%M:%S')] run-daily.sh triggered" >> logs/daily.log
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] run-daily.sh triggered"
 
-# 运行全流程，输出到日志
-npm run run:all >> logs/daily.log 2>&1
+# 运行全流程
+npm run run:all
