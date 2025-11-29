@@ -9,7 +9,6 @@ cd "$ROOT_DIR" || exit 1
 # 可选：加载 nvm（如需固定 Node 版本，在服务器调整路径）
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 if [ -s "$NVM_DIR/nvm.sh" ]; then
-  # nvm 可选，失败不终止
   set +e
   \. "$NVM_DIR/nvm.sh"
   nvm use --silent >/dev/null 2>&1 || true
