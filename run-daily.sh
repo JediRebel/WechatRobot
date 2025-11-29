@@ -1,19 +1,13 @@
 #!/bin/bash
-# Daily wrapper: enter project, optional nvm, log, run full pipeline
+# Daily wrapper: enter project, log, run full pipeline
 set -euo pipefail
 
 # 基于脚本位置推导项目根目录
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR" || exit 1
 
-# 可选：加载 nvm（如需固定 Node 版本，在服务器调整路径）
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-if [ -s "$NVM_DIR/nvm.sh" ]; then
-  set +e
-  \. "$NVM_DIR/nvm.sh"
-  nvm use --silent >/dev/null 2>&1 || true
-  set -e
-fi
+# 确保 PATH 包含常用目录（避免 cron 下找不到 node/npm）
+export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
 # 日志文件（同时输出到终端和文件）
 mkdir -p "$ROOT_DIR/logs"
