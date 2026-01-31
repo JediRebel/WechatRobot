@@ -30,6 +30,7 @@ export interface FinalItem {
   link: string;
   date?: Date;
   source: string;
+  content?: string; // ✅ 新增：用于存储抓取到的正文全文
 }
 
 // ===== 工具 =====
@@ -66,6 +67,37 @@ function cleanTitleBySite(raw: string, sourceId: string): string {
   }
 
   return t;
+}
+
+/** ✅ 新增：从详情页尽量提取核心正文文本 */
+function extractMainContent($: cheerio.CheerioAPI): string {
+  // 移除干扰元素（导航、页脚、脚本、侧边栏等）
+  $('script, style, nav, footer, header, aside, .sidebar, .menu, .ads, .nav').remove();
+
+  // 尝试匹配常见的正文容器选择器
+  const contentSelectors = [
+    'article', 
+    '.content', 
+    '.post-content', 
+    '.entry-content', 
+    '.article-body',
+    'main',
+    '#main-content',
+    '.field-item',
+    '.node__content',
+    '.body-text'
+  ];
+
+  for (const sel of contentSelectors) {
+    const text = $(sel).text().trim();
+    if (text.length > 100) { // 简单校验，防止抓到过短的容器
+      return text.replace(/\s+/g, ' '); // 压缩空白符
+    }
+  }
+
+  // 兜底方案：抓取所有 p 标签的内容并合并
+  const paragraphs = $('p').map((_, el) => $(el).text().trim()).get();
+  return paragraphs.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 /** 按 link 去重，避免同一篇文章重复出现 */
@@ -352,7 +384,9 @@ export async function scrapeByConfig(
   const policy = config.detail || {};
   const needWhenNoDate = !!policy.fetchWhenNoDate;
   const always = !!policy.alwaysFetch;
-  const toDetail = rows.filter((r) => always || (needWhenNoDate && !r.date));
+  
+  /** ✅ 逻辑更新：为了获取全文，我们需要进入所有符合时间条件的详情页 */
+  const toDetail = rows.filter((r) => always || needWhenNoDate || true); // 默认开启全文抓取
   const limiter = pLimit(Math.max(1, policy.concurrency ?? 3));
 
   if (debug) {
@@ -362,7 +396,7 @@ export async function scrapeByConfig(
     );
   }
 
-  // ===== 抓详情拿日期 =====
+  // ===== 抓详情拿日期 + 全文正文 =====
   await Promise.all(
     toDetail.map((r) =>
       limiter(async () => {
@@ -375,8 +409,16 @@ export async function scrapeByConfig(
             validateStatus: (s) => s >= 200 && s < 400,
           });
           const $$ = cheerio.load(detailHtml);
-          const dd = extractDetailDate($$);
-          if (dd) r.date = dd;
+          
+          // 1. 如果列表页没日期，尝试在详情页抓取
+          if (!r.date) {
+            const dd = extractDetailDate($$);
+            if (dd) r.date = dd;
+          }
+
+          // 2. ✅ 新增：提取全文内容
+          (r as any).content = extractMainContent($$);
+          
         } catch (e) {
           if (debug)
             console.log(
@@ -412,8 +454,9 @@ export async function scrapeByConfig(
   const final: FinalItem[] = kept.map((r) => ({
     title: r.title,
     link: r.link,
-    date: r.date ?? undefined, // 把 null 规整为 undefined，匹配 FinalItem
+    date: r.date ?? undefined,
     source: config.id,
+    content: (r as any).content // ✅ 将正文透传到最终结果
   }));
 
   if (debug) {

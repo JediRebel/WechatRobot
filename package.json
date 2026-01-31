@@ -4,7 +4,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "run:all": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/fetch-news.ts"
+    "run:all": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/fetch-news.ts",
+    "run:long": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/fetch-news.ts --long",
+    "typecheck": "tsc --noEmit"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +26,7 @@
     "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
     "dotenv": "^17.2.3",
+    "form-data": "^4.0.5",
     "luxon": "^3.7.1",
     "p-limit": "^7.0.0",
     "puppeteer": "^24.15.0",
