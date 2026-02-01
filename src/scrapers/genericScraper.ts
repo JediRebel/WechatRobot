@@ -30,7 +30,7 @@ export interface FinalItem {
   link: string;
   date?: Date;
   source: string;
-  content?: string; // ✅ 新增：用于存储抓取到的正文全文
+  content?: string; // ✅ 用于存储抓取到的正文全文
 }
 
 // ===== 工具 =====
@@ -52,52 +52,136 @@ function pickAttr($el: Cheerio<Element>, attr: string): string {
   return ($el.attr(attr) || '').trim();
 }
 
+/** * ✅ 增强版：强力清洗标题 
+ * 修改点：加入了对 \n \t 的强力清洗，以及 NB Power 的后缀去除
+ */
 function cleanTitleBySite(raw: string, sourceId: string): string {
-  // 1️⃣ 先统一清理空白：把换行、Tab、多空格都变成一个空格
-  let t = raw.replace(/\s+/g, ' ').trim();
+  if (!raw) return '';
 
-  // 2️⃣ Quispamsis：去掉末尾的 "By Town of Quispamsis"
+  // 1️⃣ [新增] 暴力清洗：把所有 换行(\n)、回车(\r)、制表符(\t) 统统变成空格
+  // 这是解决 NB Power 标题里有大量空白和换行的关键
+  let t = raw.replace(/[\r\n\t]+/g, ' ');
+  
+  // 2️⃣ 压缩空格：把 "NB Power    files" 变成 "NB Power files"
+  t = t.replace(/\s+/g, ' ').trim();
+
+  // 3️⃣ Quispamsis (保留原有逻辑)
   if (sourceId === 'quispamsis') {
     t = t.replace(/By Town of Quispamsis\s*$/i, '').trim();
   }
 
-  // 3️⃣ NB Power：去掉末尾的日期 " - 2025-07-14"
+  // 4️⃣ [新增] NB Power 特殊处理
+  // 此时 t 已经是单行文本了，格式类似于 "Title - 2026-01-23"
   if (sourceId === 'nb-power') {
-    t = t.replace(/\s*-\s*\d{4}-\d{2}-\d{2}$/, '').trim();
+    // 匹配 " - YYYY-MM-DD" 以及后面可能存在的任何字符，全部切掉
+    t = t.replace(/\s*-\s*\d{4}-\d{2}-\d{2}[\s\S]*$/, '').trim();
   }
 
   return t;
 }
 
-/** ✅ 新增：从详情页尽量提取核心正文文本 */
-function extractMainContent($: cheerio.CheerioAPI): string {
-  // 移除干扰元素（导航、页脚、脚本、侧边栏等）
-  $('script, style, nav, footer, header, aside, .sidebar, .menu, .ads, .nav').remove();
-
-  // 尝试匹配常见的正文容器选择器
-  const contentSelectors = [
-    'article', 
-    '.content', 
-    '.post-content', 
-    '.entry-content', 
-    '.article-body',
-    'main',
-    '#main-content',
-    '.field-item',
-    '.node__content',
-    '.body-text'
-  ];
-
-  for (const sel of contentSelectors) {
-    const text = $(sel).text().trim();
-    if (text.length > 100) { // 简单校验，防止抓到过短的容器
-      return text.replace(/\s+/g, ' '); // 压缩空白符
+/** * 从详情页尽量提取核心正文文本 
+ * (完全保留了你原有的 CTV 和 Country 94 逻辑)
+ */
+function extractMainContent($: cheerio.CheerioAPI, config: HtmlScraperConfig): string {
+  // 1️⃣ 【特种部队策略】优先检查 CTV/Fusion 架构的元数据
+  const fusionScript = $('script#fusion-metadata').html();
+  if (fusionScript) {
+    try {
+      const match = fusionScript.match(/Fusion\.globalContent\s*=\s*(\{.*?\});/);
+      if (match && match[1]) {
+        const json = JSON.parse(match[1]);
+        if (json.content_elements && Array.isArray(json.content_elements)) {
+          const textParts = json.content_elements
+            .filter((el: any) => el.type === 'text' || el.type === 'raw_html')
+            .map((el: any) => {
+              const rawText = el.content || '';
+              return rawText.replace(/<[^>]+>/g, '').trim();           
+            });
+          
+          if (textParts.length > 0) {
+            return textParts.join(' ');
+          }
+        }
+      }
+    } catch (e) {
+      // JSON 解析失败则忽略，继续往下走
     }
   }
 
-  // 兜底方案：抓取所有 p 标签的内容并合并
-  const paragraphs = $('p').map((_, el) => $(el).text().trim()).get();
-  return paragraphs.join(' ').replace(/\s+/g, ' ').trim();
+  // ==========================================
+  // 下面是你原有的常规 HTML 抓取逻辑
+  // ==========================================
+
+  // 移除干扰元素
+  $('script, style, nav, footer, header, aside, .sidebar, .menu, .ads, .nav, .alert, .ad, iframe, .c-related-stories, .pp-multiple-authors-boxes-wrapper').remove();
+
+  let content = '';
+
+  // 2️⃣ 优先使用配置文件里的 content 选择器
+  if (config.selectors?.content) {
+    const $els = $(config.selectors.content);
+    if ($els.length > 0) {
+      content = $els.map((_, el) => $(el).text().trim()).get().join(' ');
+    }
+  }
+
+  // 3️⃣ 如果没配置或没抓到，尝试匹配常见的正文容器选择器
+  if (!content) {
+    const contentSelectors = [
+      'article', 
+      '.content', 
+      '.post-content', 
+      '.entry-content', 
+      '.article-body',
+      'main',
+      '#main-content',
+      '.field-item',
+      '.node__content',
+      '.body-text',
+      '#content',          
+      '.view-content',      
+      '.b-article-body'
+    ];
+
+    for (const sel of contentSelectors) {
+      const $container = $(sel);
+      if ($container.length > 0) {
+        const $ps = $container.find('p');
+        if ($ps.length > 2) {
+           content = $ps.map((_, el) => $(el).text().trim()).get().join(' ');
+        } else {
+           content = $container.text().trim();
+        }
+        
+        if (content.length > 50) break; 
+      }
+    }
+  }
+
+  // 4️⃣ 兜底方案
+  if (!content) {
+    const paragraphs = $('p').map((_, el) => $(el).text().trim()).get();
+    content = paragraphs.join(' ').trim();
+  }
+
+  // 🧹 Country 94 专用清理 (保留原有逻辑)
+  if (config.id === 'country94') {
+    const noiseTriggers = [
+      'Current weather conditions',
+      'View all posts',
+      'Do you have a news tip',
+      'Newsletter Signup'
+    ];
+
+    for (const trigger of noiseTriggers) {
+      const regex = new RegExp(`${trigger}[\\s\\S]*$`, 'i');
+      content = content.replace(regex, '');
+    }
+  }
+  
+  // 统一压缩空白符并返回
+  return content.replace(/\s+/g, ' ').trim();
 }
 
 /** 按 link 去重，避免同一篇文章重复出现 */
@@ -112,26 +196,51 @@ function dedupeByLink(rows: RawRow[]): RawRow[] {
   });
 }
 
-/** 宽松解析英文日期为 Date */
+/** * ✅ 增强版：宽松解析英文日期 
+ * 修改点：增加了从长文本中提取 YYYY-MM-DD 的能力，解决 NB Power 日期在标题里的问题
+ */
 function parseDateLoose(input?: string): Date | undefined {
   if (!input) return undefined;
-  const s = input
-    .replace(/^(posted|published)\s*:\s*/i, '')
+  
+  const s = input.trim();
+
+  // 🆕 [新增] 优先尝试提取 YYYY-MM-DD 格式
+  // 即使字符串是 "Title Text - 2026-01-23 some other text"，这行也能把日期提取出来
+  const isoMatch = s.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+  if (isoMatch) {
+    const d = dayjs(isoMatch[1]);
+    if (d.isValid()) return d.toDate();
+  }
+  
+  // 下面保持你原有的逻辑不变
+  // 1. 移除常见前缀
+  let clean = s
+    .replace(/^(posted|published)(?:\s+on)?\s*[:]?\s*/i, '') 
     .replace(/\s+at\s+/i, ' ')
+    .replace('|', ' ')
     .replace(/(\d+)(st|nd|rd|th)/gi, '$1')
     .replace(/,+/g, ',')
     .trim();
-  const d = dayjs(s);
+
+  // 2. 移除常见干扰后缀
+  const inIndex = clean.indexOf(' in ');
+  if (inIndex > 0) {
+    const candidate = clean.substring(0, inIndex).trim();
+    const d = dayjs(candidate);
+    if (d.isValid()) return d.toDate();
+  }
+
+  // 3. 尝试直接解析
+  const d = dayjs(clean);
   if (d.isValid()) return d.toDate();
 
-  // 兜底：让原生 Date 再尝试一次（例如 "24 November 2025"）
-  const native = new Date(s);
+  // 4. 兜底
+  const native = new Date(clean);
   return Number.isNaN(native.getTime()) ? undefined : native;
 }
 
 /** 从详情页尽量找日期 */
 function extractDetailDate($: cheerio.CheerioAPI): Date | undefined {
-  // 1) 先尝试 meta / time[datetime]
   const meta =
     $('meta[property="article:published_time"]').attr('content') ||
     $('meta[name="date"]').attr('content') ||
@@ -143,10 +252,7 @@ function extractDetailDate($: cheerio.CheerioAPI): Date | undefined {
     if (d) return d;
   }
 
-  // 2) 再从常见的日期元素里找一圈
   const candidates: string[] = [];
-
-  // 传统选择器 + Quispamsis 自己的 class
   $(
     'time, .date, .post-date, .entry-date, p.published, .published, .value.field_created',
   ).each((_idx, el) => {
@@ -154,7 +260,6 @@ function extractDetailDate($: cheerio.CheerioAPI): Date | undefined {
     if (t) candidates.push(t.trim());
   });
 
-  // 3) 兜底：再扫一遍 class 里带 date 的元素（避免遗漏其它新站点）
   $('[class*="date"]').each((_idx, el) => {
     const t = $(el).attr('datetime') || $(el).text();
     if (t) candidates.push(t.trim());
@@ -165,9 +270,8 @@ function extractDetailDate($: cheerio.CheerioAPI): Date | undefined {
     if (d) return d;
   }
 
-  // 4) 兜底：文中出现 "Posted: <日期>" 或 "Published: <日期>"
   const textNeedle = $('body').text();
-  const match = textNeedle.match(/(?:Posted|Published)\\s*:\\s*([A-Za-z]{3,9}\\.?\\s+\\d{1,2},\\s*\\d{4})/i);
+  const match = textNeedle.match(/(?:Posted|Published)(?:\s+on)?\s*[:]?\s*([A-Za-z]{3,9}\.?\s+\d{1,2},?\s*\d{4})/i);
   if (match && match[1]) {
     const dd = parseDateLoose(match[1]);
     if (dd) return dd;
@@ -176,14 +280,14 @@ function extractDetailDate($: cheerio.CheerioAPI): Date | undefined {
   return undefined;
 }
 
-/** d 是否落入 [windowStart, windowEnd]（含 end） */
+/** d 是否落入窗口 */
 function inWindow(
   d: Date | null | undefined,
   tz = 'America/Moncton',
   startHour = 7,
   hours = 24,
 ): boolean {
-  if (!d) return false; // 同时拦住 undefined / null
+  if (!d) return false;
   const now = dayjs().tz(tz);
   const windowEnd =
     now.hour() >= startHour
@@ -239,6 +343,8 @@ export async function scrapeByConfig(
     let $t = sel.title ? $li.find(sel.title) : $li;
     if ($t.length === 0) $t = $li;
     let title = pickText($t as Cheerio<Element>);
+    
+    // 💡 使用增强后的标题清洗函数
     title = cleanTitleBySite(title, config.id);
 
     // link
@@ -246,10 +352,8 @@ export async function scrapeByConfig(
     if (sel.link) {
       const $a = $li.find(sel.link).first() as Cheerio<Element>;
       href = ($a.attr('href') || '').trim();
-      // 若 listItem 本身是 <a>，则用自身 href 兜底
       if (!href) href = ($li.attr('href') || '').trim();
     } else {
-      // 当未配置 link 选择器时，尝试直接读取 listItem 的 href
       href = ($li.attr('href') || '').trim();
     }
     href = absUrl(href, config.baseUrl);
@@ -258,7 +362,6 @@ export async function scrapeByConfig(
     let d: Date | undefined;
     if (sel.date) {
       let $d = $li.find(sel.date).first() as Cheerio<Element>;
-      // 若当前节点内未找到日期，尝试查找后续兄弟（兼容列表结构中日期在紧随 h2 后的场景）
       if (!$d.length) {
         $d = $li.nextAll(sel.date).first() as Cheerio<Element>;
       }
@@ -267,6 +370,8 @@ export async function scrapeByConfig(
           sel.dateAttr === undefined || sel.dateAttr === null
             ? pickText($d)
             : pickAttr($d, sel.dateAttr);
+        
+        // 💡 使用增强后的日期解析函数 (NB Power 的日期会在这里被提取)
         d = parseDateLoose(raw);
       }
     }
@@ -280,44 +385,29 @@ export async function scrapeByConfig(
   let tmp = rows;
 
   if (config.linkIncludes?.length) {
-    const before = tmp.length;
     const incs = config.linkIncludes.map((x: string) => x.toLowerCase());
     tmp = tmp.filter((r) =>
       incs.some((inc: string) => r.link.toLowerCase().includes(inc)),
     );
-    if (debug)
-      console.log(
-        `[${config.id}] linkIncludes filter (${config.linkIncludes.join(', ')}): ${before} -> ${tmp.length}`,
-      );
   }
 
   if (config.linkExcludes?.length) {
-    const before = tmp.length;
     const exs = config.linkExcludes.map((x: string) => x.toLowerCase());
     tmp = tmp.filter(
       (r) => !exs.some((ex: string) => r.link.toLowerCase().includes(ex)),
     );
-    if (debug)
-      console.log(
-        `[${config.id}] linkExcludes filter (${config.linkExcludes.join(', ')}): ${before} -> ${tmp.length}`,
-      );
   }
 
   if (config.titleExcludes?.length) {
-    const before = tmp.length;
     const bads = config.titleExcludes.map((x: string) => x.toLowerCase());
     tmp = tmp.filter(
       (r) => !bads.some((bad: string) => r.title.toLowerCase().includes(bad)),
     );
-    if (debug)
-      console.log(
-        `[${config.id}] titleExcludes filter (${config.titleExcludes.join(', ')}): ${before} -> ${tmp.length}`,
-      );
   }
 
   rows = tmp;
 
-  // 去重：防止同一链接出现多次（例如 SJ 列表里重复的条目）
+  // 去重
   const beforeDedupe = rows.length;
   rows = dedupeByLink(rows);
   if (debug) {
@@ -326,7 +416,7 @@ export async function scrapeByConfig(
     );
   }
 
-  // ===== 如果一个都没有，降级：全页 a[href] 作为兜底 =====
+  // ===== 兜底逻辑 (锚点抓取) =====
   if (rows.length === 0) {
     const anchors: RawRow[] = [];
     $('a[href]').each((_, a) => {
@@ -352,14 +442,6 @@ export async function scrapeByConfig(
       )
         return;
 
-      if (
-        config.titleExcludes?.length &&
-        config.titleExcludes
-          .map((x: string) => x.toLowerCase())
-          .some((bad: string) => t.toLowerCase().includes(bad))
-      )
-        return;
-
       if (anchors.some((x) => x.link === href)) return;
       anchors.push({ title: t, link: href });
     });
@@ -367,17 +449,8 @@ export async function scrapeByConfig(
     rows = anchors.slice(0, 80);
     if (debug)
       console.log(
-        `[${config.id}] rows empty -> fallback anchors collected: ${anchors.length}, kept=${rows.length}`,
+        `[${config.id}] rows empty -> fallback anchors collected: ${anchors.length}`,
       );
-  }
-
-  if (debug) {
-    console.log(
-      `[${config.id}] Raw rows from listItem "${sel.listItem}": ${beforeFilter}`,
-    );
-    console.log(
-      `[${config.id}] List rows after unified filters: ${beforeFilter} -> ${rows.length}`,
-    );
   }
 
   // ===== 详情抓取计划 =====
@@ -385,14 +458,13 @@ export async function scrapeByConfig(
   const needWhenNoDate = !!policy.fetchWhenNoDate;
   const always = !!policy.alwaysFetch;
   
-  /** ✅ 逻辑更新：为了获取全文，我们需要进入所有符合时间条件的详情页 */
-  const toDetail = rows.filter((r) => always || needWhenNoDate || true); // 默认开启全文抓取
+  const toDetail = rows.filter((r) => always || (needWhenNoDate && !r.date));
+  
   const limiter = pLimit(Math.max(1, policy.concurrency ?? 3));
 
   if (debug) {
-    const noDate = rows.filter((r) => !r.date).length;
     console.log(
-      `[${config.id}] Detail plan: total=${rows.length}, noDate=${noDate}, toDetail=${toDetail.length}, concurrency=${policy.concurrency ?? 3}, alwaysFetch=${always}`,
+      `[${config.id}] Detail plan: total=${rows.length}, toDetail=${toDetail.length}`,
     );
   }
 
@@ -401,7 +473,17 @@ export async function scrapeByConfig(
     toDetail.map((r) =>
       limiter(async () => {
         try {
-          const { data: detailHtml } = await axios.get(r.link, {
+          let fetchLink = r.link;
+
+          // 🚨 【保留关键逻辑】GNB URL 替换
+          // 解决 GNB 详情页空壳问题，直接替换为 nocache.html
+          if (config.id === 'gnb-news-en') {
+            fetchLink = fetchLink
+              .replace('/news_release.', '/news_release/_jcr_content/mainContent_par/newsarticle.')
+              .replace('.html', '.nocache.html');
+          }
+
+          const { data: detailHtml } = await axios.get(fetchLink, {
             timeout: 20000,
             headers: { 'User-Agent': UA, ...(config.headers || {}) },
             responseType: 'text',
@@ -410,14 +492,13 @@ export async function scrapeByConfig(
           });
           const $$ = cheerio.load(detailHtml);
           
-          // 1. 如果列表页没日期，尝试在详情页抓取
           if (!r.date) {
             const dd = extractDetailDate($$);
             if (dd) r.date = dd;
           }
 
-          // 2. ✅ 新增：提取全文内容
-          (r as any).content = extractMainContent($$);
+          // 提取全文
+          (r as any).content = extractMainContent($$, config);
           
         } catch (e) {
           if (debug)
@@ -433,17 +514,9 @@ export async function scrapeByConfig(
   // ===== 时间窗口过滤 =====
   let kept = rows;
   if (!opts.ignoreWindow) {
-    const before = kept.length;
     kept = kept.filter((r) => inWindow(r.date, tz, startHour, windowHours));
-    if (debug)
-      console.log(
-        `[${config.id}] Window filter (${tz} ${startHour}→${(startHour + windowHours) % 24}, IGNORE_WINDOW=${!!opts.ignoreWindow}): ${before} -> ${kept.length}`,
-      );
   } else {
-    if (debug)
-      console.log(
-        `[${config.id}] Window filter skipped (IGNORE_WINDOW=true). kept=${kept.length}`,
-      );
+    if (debug) console.log(`[${config.id}] Window filter skipped.`);
   }
 
   // ===== 截断 & 输出 =====
@@ -456,7 +529,7 @@ export async function scrapeByConfig(
     link: r.link,
     date: r.date ?? undefined,
     source: config.id,
-    content: (r as any).content // ✅ 将正文透传到最终结果
+    content: (r as any).content
   }));
 
   if (debug) {

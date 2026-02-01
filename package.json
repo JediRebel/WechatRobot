@@ -30,6 +30,8 @@
     "luxon": "^3.7.1",
     "p-limit": "^7.0.0",
     "puppeteer": "^24.15.0",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
     "rss-parser": "^3.13.0"
   }
 }
