@@ -6,9 +6,15 @@ import fs from "fs"
 import minimist from "minimist"
 
 const argv = minimist(process.argv.slice(2), {
-  boolean: ["long", "prod"], // 🚨 新增 prod 参数支持
+  boolean: ["long", "prod", "preview"],
+  string: ["model", "maxTokens", "windowHours", "previewOpenid"],
   alias: { l: "long", p: "prod" },
-  default: { long: undefined, prod: false },
+  default: {
+    long: undefined,
+    prod: false,
+    model: undefined,
+    maxTokens: undefined,
+  },
 })
 
 function run(cmd: string) {
@@ -77,6 +83,12 @@ async function main() {
   const summaryScript = isLongMode
     ? "summarize-long-news.ts"
     : "summarize-news.ts"
+  const defaultModel = isLongMode ? "gpt-5.2" : "gpt-4o-mini"
+  const defaultMaxTokens = isLongMode ? 9000 : 1500
+  const modelArg = argv.model ? `--model ${argv.model}` : `--model ${defaultModel}`
+  const maxTokensArg = argv.maxTokens
+    ? `--maxTokens ${argv.maxTokens}`
+    : `--maxTokens ${defaultMaxTokens}`
   const testJsonPath = path.join("out", "latest-fetch-test.json")
   console.log(`\n✍️ 开始生成总结文案...`)
   try {
@@ -85,7 +97,7 @@ async function main() {
       !isProd && fs.existsSync(testJsonPath) ? `--input "${testJsonPath}"` : ""
     run(
       `npx ts-node -r dotenv/config scripts/${summaryScript} ` +
-        `--output "${postPath}" --model gpt-4o-mini ${inputArg}`,
+        `--output "${postPath}" ${modelArg} ${maxTokensArg} ${inputArg}`,
     )
   } catch (err) {
     if (!fs.existsSync(postPath)) {
@@ -117,6 +129,8 @@ async function main() {
     run(
       `npx ts-node -r dotenv/config scripts/publish-mp.ts --long ${
         isProd ? "--prod" : ""
+      } ${argv.preview ? "--preview" : ""} ${
+        argv.previewOpenid ? `--previewOpenid ${argv.previewOpenid}` : ""
       }`,
     )
 

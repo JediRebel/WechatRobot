@@ -10,11 +10,13 @@ import { wechatMpClient } from "../src/wechat/mp-client"
 import { updateNewsStatus } from "../src/utils/db" // [新增] 引入数据库更新函数
 
 const argv = minimist(process.argv.slice(2), {
-  boolean: ["long", "prod"],
-  default: { long: false, prod: false },
+  boolean: ["long", "prod", "preview"],
+  string: ["previewOpenid"],
+  default: { long: false, prod: false, preview: false },
 })
 
-const PREVIEW_OPENID = process.env.WECHAT_PREVIEW_OPENID || ""
+const PREVIEW_OPENID =
+  argv.previewOpenid || process.env.WECHAT_PREVIEW_OPENID || ""
 
 async function uploadPermanentImage(localPath: string): Promise<string> {
   if (!fs.existsSync(localPath)) {
@@ -154,6 +156,18 @@ async function main() {
     const article = buildArticle(content, isLong, thumbMediaId)
     const mediaId = await addDraft([article])
     console.log(`✅ 草稿已创建: ${mediaId}`)
+
+    // 可选：发送预览
+    if (argv.preview) {
+      if (!PREVIEW_OPENID) {
+        throw new Error(
+          "预览模式需要提供 openid：请设置 WECHAT_PREVIEW_OPENID 或传 --previewOpenid",
+        )
+      }
+      console.log(`👀 发送预览给 ${PREVIEW_OPENID} ...`)
+      await sendPreview(mediaId, PREVIEW_OPENID)
+      console.log("✅ 预览消息已发送，请在微信里检查效果。")
+    }
 
     // [新增] 发布成功后，更新数据库状态
     const urls = extractUrls(content)

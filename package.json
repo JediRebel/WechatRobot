@@ -5,7 +5,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "run:all": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/run-pipeline.ts",
-    "run:long": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/run-pipeline.ts --long",
+    "run:long": "NPM_CONFIG_LOGLEVEL=error ts-node -r tsconfig-paths/register -r dotenv/config scripts/run-pipeline.ts --long",
     "run:short": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/run-pipeline.ts",
     "run:test-72": "pnpm run run:all -- --long --windowHours 72",
     "step:fetch": "ts-node scripts/fetch-all.ts --json out/news.json",
