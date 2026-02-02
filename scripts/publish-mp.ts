@@ -7,10 +7,11 @@ import FormData from "form-data"
 import axios from "axios"
 import { addDraft, sendAll, sendPreview } from "../src/wechat/wechat-mp-service"
 import { wechatMpClient } from "../src/wechat/mp-client"
+import { updateNewsStatus } from "../src/utils/db" // [新增] 引入数据库更新函数
 
 const argv = minimist(process.argv.slice(2), {
-  boolean: ["long"],
-  default: { long: false },
+  boolean: ["long", "prod"],
+  default: { long: false, prod: false },
 })
 
 const PREVIEW_OPENID = process.env.WECHAT_PREVIEW_OPENID || ""
@@ -29,7 +30,14 @@ async function uploadPermanentImage(localPath: string): Promise<string> {
   return resp.data.media_id
 }
 
-// scripts/publish-mp.ts
+/**
+ * [新增辅助函数] 从文案中提取所有原文链接
+ */
+function extractUrls(content: string): string[] {
+  const urlRegex = /https?:\/\/[^\s\)\]]+/g
+  const matches = content.match(urlRegex)
+  return matches ? Array.from(new Set(matches)) : []
+}
 
 function buildArticle(content: string, isLong: boolean, thumbMediaId: string) {
   const today = new Date().toISOString().slice(0, 10)
@@ -44,7 +52,7 @@ function buildArticle(content: string, isLong: boolean, thumbMediaId: string) {
   const welcomeHeader = `
     <section style="margin-bottom: 25px; padding: 15px; background-color: #f8f8f8; border-radius: 8px; border-left: 4px solid #007aff;">
       <p style="margin: 0; font-weight: bold; color: #333; line-height: 1.6;">建设本地华人首选的信息渠道，欢迎每日查阅！</p>
-      <p style="margin: 8px 0 0 0; font-size: 14px; color: #666; line-height: 1.6;">每周一到周六，我们都会发布过去24小时本地资讯...</p>
+      <p style="margin: 8px 0 0 0; font-size: 14px; color: #666; line-height: 1.6;">每周一到周六，我们都会发布过去24小时，加拿大New Brunswick省本地资讯，帮您了解正在发生的事情，解决语言壁垒导致的信息不畅。所有资讯来自主流可信渠道。</p>
     </section>
   `
 
@@ -55,7 +63,7 @@ function buildArticle(content: string, isLong: boolean, thumbMediaId: string) {
 
   const bodyHtml = entries
     .map((entry) => {
-      // 🔍 超强正则：匹配包含 [ 或 **[ 开头的标签，且支持跨行匹配
+      // 🔍 正则匹配标题和正文标签
       const titleRegex = /(?:\*\*|\[)TITLE_START(?:\]|\*\*)\s*([^]*?)\s*(?:\*\*|\[)TITLE_END(?:\]|\*\*)/i
       const bodyRegex = /(?:\*\*|\[)BODY_START(?:\]|\*\*)\s*([^]*?)\s*(?:\*\*|\[)BODY_END(?:\]|\*\*)/i
 
@@ -63,12 +71,10 @@ function buildArticle(content: string, isLong: boolean, thumbMediaId: string) {
       const bodyMatch = entry.match(bodyRegex)
       const urlMatch = entry.match(/https?:\/\/[^\s\)\]]+/)
 
-      // 1. 提取标题
       let newsTitle = "本地动态"
       if (titleMatch && titleMatch[1]) {
         newsTitle = titleMatch[1].replace(/[【】\*]/g, "").trim()
       } else {
-        // 容错：如果正则没匹配到，尝试取第一行作为标题（并删掉可能的标签名）
         const firstLine = entry.split("\n")[0]
         newsTitle = firstLine
           .replace(/\[?TITLE_START\]?|\[?TITLE_END\]?|\*/gi, "")
@@ -76,14 +82,11 @@ function buildArticle(content: string, isLong: boolean, thumbMediaId: string) {
           .trim()
       }
 
-      // 2. 提取正文并进行“大扫除”
       let newsBody = bodyMatch ? bodyMatch[1].trim() : entry
-      // 强制删掉正文里残留的所有标签、加粗星号和分隔符
       newsBody = newsBody
         .replace(/\[?TITLE_START\]?.*?\[?TITLE_END\]?/gi, "")
         .replace(/\[?BODY_START\]?|\[?BODY_END\]?/gi, "")
         .replace(/\*\*/g, "")
-        // 增加下面这一行：删除包含 http 的整行，或“原文链接”字样的整行
         .replace(/^.*(?:原文链接|https?:\/\/).*$/gm, "")
         .trim()
 
@@ -151,6 +154,19 @@ async function main() {
     const article = buildArticle(content, isLong, thumbMediaId)
     const mediaId = await addDraft([article])
     console.log(`✅ 草稿已创建: ${mediaId}`)
+
+    // [新增] 发布成功后，更新数据库状态
+    const urls = extractUrls(content)
+
+    if (argv.prod) {
+      console.log(
+        `💾 [PRODUCTION] 正在更新数据库，标记 ${urls.length} 条新闻为已发布...`,
+      )
+      await updateNewsStatus(urls, 1)
+      console.log(`✅ 数据库状态更新完成。`)
+    } else {
+      console.log(`🧪 [TESTING] 已跳过数据库状态更新，新闻仍保持“未发布”状态。`)
+    }
   } catch (err) {
     console.error("❌ 发布失败:", err)
     process.exit(1)

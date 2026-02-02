@@ -4,13 +4,13 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "run:all": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/fetch-news.ts",
+    "run:all": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/run-pipeline.ts",
+    "run:long": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/run-pipeline.ts --long",
+    "run:short": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/run-pipeline.ts",
+    "run:test-72": "pnpm run run:all -- --long --windowHours 72",
     "step:fetch": "ts-node scripts/fetch-all.ts --json out/news.json",
-    "test:fetch-72": "ts-node scripts/fetch-all.ts --json out/news.json --windowHours 72",
-    "step:summarize": "ts-node scripts/summarize-long-news.ts --input out/news.json --output out/long-post.txt",
+    "step:summarize": "ts-node scripts/summarize-long-news.ts --output out/long-post.txt",
     "step:publish": "ts-node scripts/publish-mp.ts --long",
-    "run:long": "rm -f out/*.json out/*.txt && pnpm step:fetch && pnpm step:summarize && pnpm step:publish",
-    "run:test-72": "pnpm test:fetch-72 && pnpm step:summarize && pnpm step:publish",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],

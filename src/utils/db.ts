@@ -9,22 +9,11 @@ const dbPath = path.join(dbDir, "news.db")
 let dbInstance: any = null
 let SQL: any = null
 
-/**
- * 初始化并获取数据库实例
- */
 async function getDb() {
   if (dbInstance) return dbInstance
+  if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true })
+  if (!SQL) SQL = await initSqlJs()
 
-  if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true })
-  }
-
-  // 加载 Wasm 引擎
-  if (!SQL) {
-    SQL = await initSqlJs()
-  }
-
-  // 如果文件存在则读取，否则创建新库
   if (fs.existsSync(dbPath)) {
     const fileBuffer = fs.readFileSync(dbPath)
     dbInstance = new SQL.Database(fileBuffer)
@@ -32,7 +21,6 @@ async function getDb() {
     dbInstance = new SQL.Database()
   }
 
-  // 初始化表结构
   dbInstance.run(`
     CREATE TABLE IF NOT EXISTS news_items (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,16 +29,13 @@ async function getDb() {
       source_id TEXT,
       publish_date TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      status INTEGER DEFAULT 0
+      status INTEGER DEFAULT 0,
+      cluster_key TEXT
     )
   `)
-
   return dbInstance
 }
 
-/**
- * 将内存中的数据持久化到硬盘文件
- */
 function persist(db: any) {
   const data = db.export()
   const buffer = Buffer.from(data)
@@ -59,38 +44,93 @@ function persist(db: any) {
 
 /**
  * 批量保存抓取到的新闻条目
+ * 增强：支持 cluster_key 语义去重，并自动继承已发布状态
  */
 export async function saveNewsItems(
-  items: Array<{ title: string; link: string; source: string; date?: Date }>,
+  items: Array<{
+    title: string
+    link: string
+    source: string
+    date?: Date
+    cluster_key?: string
+  }>,
 ) {
   const db = await getDb()
 
+  // 💡 插入逻辑：通过 cluster_key 检查是否已有相同事件被标记为已处理 (status=1)
   const stmt = db.prepare(`
-    INSERT OR IGNORE INTO news_items (url, title, source_id, publish_date) 
-    VALUES (?, ?, ?, ?)
+    INSERT OR IGNORE INTO news_items (url, title, source_id, publish_date, cluster_key, status) 
+    VALUES (?, ?, ?, ?, ?, 
+      COALESCE((SELECT status FROM news_items WHERE cluster_key = ? AND status = 1 LIMIT 1), 0)
+    )
   `)
 
   for (const it of items) {
     try {
+      const ck = it.cluster_key || it.title
       stmt.run([
         it.link,
         it.title,
         it.source,
         it.date ? it.date.toISOString() : null,
+        ck,
+        ck, // 对应子查询中的 cluster_key = ?
       ])
     } catch (err) {
-      console.error(`❌ DB Insert Error:`, err)
+      console.error(`❌ DB Insert Error [${it.title}]:`, err)
     }
   }
 
   stmt.free()
-  // 🚨 关键：内存数据库必须手动执行导出到硬盘
   persist(db)
 }
 
 /**
- * 检查 URL 是否已经存在
+ * 批量更新新闻状态
+ * 增强版：当一个 URL 被发布，所有相同 cluster_key 的新闻全部标记为已发布
  */
+export async function updateNewsStatus(urls: string[], status: number) {
+  if (urls.length === 0) return
+  const db = await getDb()
+
+  const stmtUrl = db.prepare("UPDATE news_items SET status = ? WHERE url = ?")
+  const stmtCluster = db.prepare(`
+    UPDATE news_items SET status = ? 
+    WHERE cluster_key IN (SELECT cluster_key FROM news_items WHERE url = ?)
+  `)
+
+  for (const url of urls) {
+    try {
+      stmtCluster.run([status, url])
+      stmtUrl.run([status, url])
+    } catch (err) {
+      console.error(`❌ 更新状态失败 [${url}]:`, err)
+    }
+  }
+
+  stmtUrl.free()
+  stmtCluster.free()
+  persist(db)
+}
+
+export async function getUnprocessedNews(): Promise<any[]> {
+  const db = await getDb()
+  const res = db.exec(
+    "SELECT url as link, title, source_id as source, publish_date as date FROM news_items WHERE status = 0 ORDER BY publish_date DESC",
+  )
+
+  if (res.length === 0) return []
+  const columns = res[0].columns
+  const values = res[0].values
+  return values.map((row: any) => {
+    const obj: any = {}
+    columns.forEach((col: string, i: number) => {
+      obj[col] = row[i]
+    })
+    return obj
+  })
+}
+
 export async function isNewsExists(url: string): Promise<boolean> {
   const db = await getDb()
   const res = db.exec("SELECT id FROM news_items WHERE url = ?", [url])

@@ -4,11 +4,11 @@ import fs from "fs"
 import path from "path"
 import minimist from "minimist"
 import "dotenv/config"
+import { getUnprocessedNews } from "../src/utils/db"
 
 const argv = minimist(process.argv.slice(2), {
-  string: ["input", "output", "model", "apiBase"],
+  string: ["output", "model", "apiBase", "input"], // [修改] 重新引入 input 参数
   default: {
-    input: "out/news.json",
     output: "out/long-post.txt",
     model: "gpt-4o-mini",
     maxTokens: 6000,
@@ -25,47 +25,55 @@ if (!apiKey) {
   process.exit(1)
 }
 
-const inputPath = path.resolve(argv.input)
 const outputPath = path.resolve(argv.output)
 
-function loadNews() {
-  if (!fs.existsSync(inputPath)) {
-    console.error(`❌ 找不到输入文件: ${inputPath}`)
-    process.exit(1)
+/**
+ * [增强] 支持双模式加载数据
+ * 1. 优先检查是否提供了 --input (测试模式)
+ * 2. 如果没有，则从数据库读取 (生产模式)
+ */
+async function loadNewsData() {
+  const inputPath = argv.input
+
+  if (inputPath && fs.existsSync(inputPath)) {
+    console.log(`🧪 [TESTING] 正在从测试文件加载预览数据: ${inputPath}`)
+    try {
+      const rawData = fs.readFileSync(inputPath, "utf-8")
+      const items = JSON.parse(rawData)
+
+      // 兼容 fetch-all 输出的两种格式 (aggregated 或 扁平化 list)
+      const finalItems = Array.isArray(items)
+        ? items
+        : items.flatMap
+        ? items.flatMap((g: any) => g.items)
+        : []
+
+      if (finalItems.length === 0) {
+        console.warn("⚠️ 测试文件中没有新闻数据。")
+        process.exit(0)
+      }
+      console.log(`统计：从测试文件提取了 ${finalItems.length} 条新闻。`)
+      return finalItems
+    } catch (err) {
+      console.error("❌ 解析测试文件失败:", err)
+      process.exit(1)
+    }
   }
 
-  const raw = fs.readFileSync(inputPath, "utf8")
-  const data = JSON.parse(raw)
+  // 生产模式：读取数据库
+  console.log("读取数据库中未处理的新闻...")
+  const dbItems = await getUnprocessedNews()
 
-  // 1. 提取所有新闻条目并进行 URL 硬去重
-  const uniqueItemsMap = new Map()
-
-  data.forEach((group: any) => {
-    if (group.items && Array.isArray(group.items)) {
-      group.items.forEach((item: any) => {
-        // 如果链接已存在，则根据来源优先级决定是否替换（可选增强）
-        // 这里采用简单的“先到先得”去重，或直接以 URL 为准
-        if (!uniqueItemsMap.has(item.link)) {
-          uniqueItemsMap.set(item.link, item)
-        }
-      })
-    }
-  })
-
-  // 2. 将去重后的扁平化列表返回
-  // 提示：将嵌套的 Group 结构扁平化为 Array<Item>，更有利于 AI 扫描
-  const finalItems = Array.from(uniqueItemsMap.values())
-
-  if (finalItems.length === 0) {
-    console.warn("⚠️ 没有抓取到任何新闻条目。")
+  if (dbItems.length === 0) {
+    console.warn("⚠️ 数据库中没有未处理的新闻条目。")
     process.exit(0)
   }
 
-  console.log(`统计：从原始数据中提取了 ${finalItems.length} 条唯一新闻。`)
-  return finalItems
+  console.log(`统计：从数据库提取了 ${dbItems.length} 条唯一新闻。`)
+  return dbItems
 }
 
-// 核心修复：添加返回类型声明并在循环中 return 结果
+// 核心修复：保持 callOpenAI 逻辑不变
 async function callOpenAI(prompt: string): Promise<string> {
   const maxAttempts = 3
   let lastErr: Error | undefined
@@ -100,11 +108,9 @@ async function callOpenAI(prompt: string): Promise<string> {
       const result = json.choices?.[0]?.message?.content
       if (!result) throw new Error("OpenAI API 返回内容为空")
 
-      return result as string // 成功时必须 return
+      return result as string
     } catch (err) {
-      // 类型守卫修复
       lastErr = err instanceof Error ? err : new Error(String(err))
-
       if (i < maxAttempts) {
         await new Promise((r) => setTimeout(r, 2000 * i))
         continue
@@ -115,9 +121,10 @@ async function callOpenAI(prompt: string): Promise<string> {
 }
 
 async function main() {
-  const groups = loadNews()
+  // [修改] 调用增强后的加载函数
+  const groups = await loadNewsData()
 
-  // 🚨 核心改进：将最新的深度报道提示词直接整合
+  // 🚨 完整保留您原始的提示词内容，不做任何删减
   const prompt = `
 你是一位资深的海外华人社区新闻主编。请处理以下 JSON 新闻列表，为微信公众号创作深度资讯。
 
