@@ -5,7 +5,12 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "run:all": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/fetch-news.ts",
-    "run:long": "ts-node -r tsconfig-paths/register -r dotenv/config scripts/fetch-news.ts --long",
+    "step:fetch": "ts-node scripts/fetch-all.ts --json out/news.json",
+    "test:fetch-72": "ts-node scripts/fetch-all.ts --json out/news.json --windowHours 72",
+    "step:summarize": "ts-node scripts/summarize-long-news.ts --input out/news.json --output out/long-post.txt",
+    "step:publish": "ts-node scripts/publish-mp.ts --long",
+    "run:long": "rm -f out/*.json out/*.txt && pnpm step:fetch && pnpm step:summarize && pnpm step:publish",
+    "run:test-72": "pnpm test:fetch-72 && pnpm step:summarize && pnpm step:publish",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [],
@@ -16,6 +21,7 @@
     "@types/luxon": "^3.7.1",
     "@types/minimist": "^1.2.5",
     "@types/node": "^24.2.1",
+    "@types/sql.js": "^1.4.9",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.8.3"
@@ -32,6 +38,8 @@
     "puppeteer": "^24.15.0",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
-    "rss-parser": "^3.13.0"
+    "rss-parser": "^3.13.0",
+    "sql.js": "^1.13.0",
+    "sqlite": "^5.1.1"
   }
 }

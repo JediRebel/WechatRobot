@@ -1,4 +1,4 @@
-#!/bin/bash
+# !/bin/bash
 # Daily wrapper: enter project, log, run full pipeline
 set -euo pipefail
 

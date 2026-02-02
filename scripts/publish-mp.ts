@@ -1,15 +1,13 @@
 // scripts/publish-mp.ts
-// 功能：自动上传封面图 -> 创建公众号草稿 -> 预览/群发
 import "dotenv/config"
 import fs from "fs"
 import path from "path"
 import minimist from "minimist"
-import FormData from "form-data" // 需安装：npm install form-data
+import FormData from "form-data"
 import axios from "axios"
 import { addDraft, sendAll, sendPreview } from "../src/wechat/wechat-mp-service"
 import { wechatMpClient } from "../src/wechat/mp-client"
 
-// 解析命令行参数
 const argv = minimist(process.argv.slice(2), {
   boolean: ["long"],
   default: { long: false },
@@ -17,92 +15,113 @@ const argv = minimist(process.argv.slice(2), {
 
 const PREVIEW_OPENID = process.env.WECHAT_PREVIEW_OPENID || ""
 
-/**
- * ✅ 新增：上传本地图片到微信永久素材库，获取 thumb_media_id
- * 建议在项目根目录准备一个 assets/cover.jpg 作为默认封面
- */
 async function uploadPermanentImage(localPath: string): Promise<string> {
   if (!fs.existsSync(localPath)) {
-    throw new Error(`封面图不存在: ${localPath}，请在指定位置放置图片文件。`)
+    throw new Error(`封面图不存在: ${localPath}`)
   }
-
   const accessToken = await wechatMpClient.getAccessToken()
-  // 微信永久素材上传接口
   const url = `https://api.weixin.qq.com/cgi-bin/material/add_material?access_token=${accessToken}&type=image`
-
   const form = new FormData()
   form.append("media", fs.createReadStream(localPath))
-
   console.log(`正在上传封面图: ${localPath}...`)
-  const resp = await axios.post(url, form, {
-    headers: form.getHeaders(),
-  })
-
-  if (resp.data.errcode) {
-    throw new Error(`图片上传失败: ${resp.data.errcode} ${resp.data.errmsg}`)
-  }
-
-  console.log(`✅ 封面图上传成功, media_id: ${resp.data.media_id}`)
+  const resp = await axios.post(url, form, { headers: form.getHeaders() })
+  if (resp.data.errcode) throw new Error(`图片上传失败: ${resp.data.errcode}`)
   return resp.data.media_id
 }
 
+// scripts/publish-mp.ts
+
 function buildArticle(content: string, isLong: boolean, thumbMediaId: string) {
   const today = new Date().toISOString().slice(0, 10)
-  const title = isLong ? `本地每日消息 ${today}` : `本地要闻 ${today}`
-  const digest = content.slice(0, 120).replace(/\n/g, " ")
+  const title = isLong ? `NB省本地每日资讯 ${today}` : `本地要闻 ${today}`
 
-  // 1. 使用明确的标记分割条目，不再依赖不稳定的换行
+  // 摘要逻辑：截取前120字并清理
+  const digest = content
+    .replace(/\[.*?\]/g, "")
+    .slice(0, 120)
+    .replace(/\n/g, " ")
+
+  const welcomeHeader = `
+    <section style="margin-bottom: 25px; padding: 15px; background-color: #f8f8f8; border-radius: 8px; border-left: 4px solid #007aff;">
+      <p style="margin: 0; font-weight: bold; color: #333; line-height: 1.6;">建设本地华人首选的信息渠道，欢迎每日查阅！</p>
+      <p style="margin: 8px 0 0 0; font-size: 14px; color: #666; line-height: 1.6;">每周一到周六，我们都会发布过去24小时本地资讯...</p>
+    </section>
+  `
+
   const entries = content
     .split(/---END_OF_ARTICLE---/)
     .map((e) => e.trim())
     .filter(Boolean)
 
-  const html = entries
+  const bodyHtml = entries
     .map((entry) => {
-      // 提取链接的正则：兼容纯文本和 Markdown
-      const urlRegex = /https?:\/\/[^\s\)\]]+/
-      const match = entry.match(urlRegex)
+      // 🔍 超强正则：匹配包含 [ 或 **[ 开头的标签，且支持跨行匹配
+      const titleRegex = /(?:\*\*|\[)TITLE_START(?:\]|\*\*)\s*([^]*?)\s*(?:\*\*|\[)TITLE_END(?:\]|\*\*)/i
+      const bodyRegex = /(?:\*\*|\[)BODY_START(?:\]|\*\*)\s*([^]*?)\s*(?:\*\*|\[)BODY_END(?:\]|\*\*)/i
 
-      let cleanEntry = entry
-      let linkText = ""
+      const titleMatch = entry.match(titleRegex)
+      const bodyMatch = entry.match(bodyRegex)
+      const urlMatch = entry.match(/https?:\/\/[^\s\)\]]+/)
 
-      if (match) {
-        const actualUrl = match[0]
-        // 彻底清理：删除所有包含 URL 的行以及 Markdown 符号
-        cleanEntry = entry
-          .replace(/^.*原文链接.*$/gm, "")
-          .replace(/\[链接\]/g, "")
-          .replace(/\(https?:\/\/.*?\)/g, "")
-          .replace(/https?:\/\/[^\s\)\]]+/g, "")
+      // 1. 提取标题
+      let newsTitle = "本地动态"
+      if (titleMatch && titleMatch[1]) {
+        newsTitle = titleMatch[1].replace(/[【】\*]/g, "").trim()
+      } else {
+        // 容错：如果正则没匹配到，尝试取第一行作为标题（并删掉可能的标签名）
+        const firstLine = entry.split("\n")[0]
+        newsTitle = firstLine
+          .replace(/\[?TITLE_START\]?|\[?TITLE_END\]?|\*/gi, "")
+          .replace(/[【】]/g, "")
           .trim()
-
-        linkText = `<p style="margin-top: 15px; font-size: 13px; color: #888; word-break: break-all;">
-                    原文链接（复制查看）：<br/>${actualUrl}
-                  </p>`
       }
 
-      // 2. 将正文转为段落，保持 1.8 倍行高以利于长文阅读
-      const paragraphs = cleanEntry
+      // 2. 提取正文并进行“大扫除”
+      let newsBody = bodyMatch ? bodyMatch[1].trim() : entry
+      // 强制删掉正文里残留的所有标签、加粗星号和分隔符
+      newsBody = newsBody
+        .replace(/\[?TITLE_START\]?.*?\[?TITLE_END\]?/gi, "")
+        .replace(/\[?BODY_START\]?|\[?BODY_END\]?/gi, "")
+        .replace(/\*\*/g, "")
+        // 增加下面这一行：删除包含 http 的整行，或“原文链接”字样的整行
+        .replace(/^.*(?:原文链接|https?:\/\/).*$/gm, "")
+        .trim()
+
+      const actualUrl = urlMatch ? urlMatch[0] : ""
+
+      const paragraphs = newsBody
         .split("\n")
         .map((line) => line.trim())
         .filter((line) => line.length > 0)
         .map(
           (line) =>
-            `<p style="margin-bottom: 12px; line-height: 1.8; color: #333; text-align: justify;">${line}</p>`,
+            `<p style="margin-bottom: 15px; line-height: 1.8; color: #333; font-size: 16px; text-align: justify;">${line}</p>`,
         )
         .join("")
 
-      // 恢复底部分割线，以增强长文阅读的节奏感
-      return `<section style="margin-bottom: 35px; padding-bottom: 20px; border-bottom: 1px solid #f0f0f0;">
-              ${paragraphs}
-              ${linkText}
-            </section>`
+      const linkHtml = actualUrl
+        ? `
+      <div style="margin-top: 20px; padding: 12px; background: #fdfdfd; border: 1px dashed #ccc; border-radius: 6px;">
+        <p style="font-size: 13px; color: #999; margin: 0;">原文链接（复制查看）：</p>
+        <p style="font-size: 12px; color: #576b95; word-break: break-all; margin-top: 5px;">${actualUrl}</p>
+      </div>`
+        : ""
+
+      return `
+      <section style="margin-bottom: 45px; padding-bottom: 25px; border-bottom: 1px solid #f0f0f0;">
+        <h3 style="font-size: 20px; font-weight: bold; color: #000; margin-bottom: 18px; border-left: 5px solid #07c160; padding-left: 12px; line-height: 1.4;">
+          ${newsTitle}
+        </h3>
+        ${paragraphs}
+        ${linkHtml}
+      </section>
+    `
     })
     .join("\n")
 
   return {
     title,
-    content: html,
+    content: welcomeHeader + bodyHtml,
     digest,
     author: "NB小灵通",
     thumb_media_id: thumbMediaId,
@@ -114,43 +133,26 @@ async function main() {
   const isLong = argv.long
   const fileName = isLong ? "out/long-post.txt" : "out/post.txt"
   const filePath = path.resolve(fileName)
-
-  // 封面图路径，建议你在项目里放一个固定图片
   const coverPath = path.resolve("assets/cover.jpg")
 
   if (!fs.existsSync(filePath)) {
     console.error(`❌ 未找到文案文件: ${fileName}`)
     process.exit(1)
   }
-
   const content = fs.readFileSync(filePath, "utf8").trim()
   if (!content) {
-    console.error(`❌ ${fileName} 文案内容为空`)
+    console.error(`❌ ${fileName} 内容为空`)
     process.exit(1)
   }
 
   try {
-    // 1. 全自动上传图片获取必需的 MediaID
     const thumbMediaId = await uploadPermanentImage(coverPath)
-
-    // 2. 创建草稿
-    console.log(`🚀 正在为${isLong ? "【长篇】" : "【短篇】"}创建公众号草稿...`)
+    console.log(`🚀 正在为${isLong ? "【长篇】" : "【短篇】"}创建草稿...`)
     const article = buildArticle(content, isLong, thumbMediaId)
     const mediaId = await addDraft([article])
-    console.log(`✅ 草稿已创建，media_id=${mediaId}`)
-
-    // 3. 发布逻辑：配置了预览 ID 则预览，否则正式群发
-    // if (PREVIEW_OPENID) {
-    //   await sendPreview(mediaId, PREVIEW_OPENID)
-    //   console.log(`✅ 预览已发送至手机，请查收。`)
-    // } else {
-    //   console.log("⚠️ 未配置预览 ID，正在尝试正式群发...")
-    //   await sendAll(mediaId)
-    //   console.log("✅ 文章已正式群发给所有订阅者！")
-    // }
+    console.log(`✅ 草稿已创建: ${mediaId}`)
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : String(err)
-    console.error("❌ 公众号发布全流程失败:", errorMessage)
+    console.error("❌ 发布失败:", err)
     process.exit(1)
   }
 }
