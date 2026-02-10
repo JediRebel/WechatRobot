@@ -85,8 +85,27 @@ const aggregated: Array<{
 }> = []
 
 // ========== 🚨 语义去重核心函数 ==========
+const dateBucket = (d?: Date) => {
+  if (d instanceof Date && !Number.isNaN(d.getTime())) {
+    return d.toISOString().slice(0, 10) // 按日分桶，防止长周期误并
+  }
+  return new Date().toISOString().slice(0, 10)
+}
+
 async function clusterNewsByAI(items: any[]) {
   if (items.length <= 1) return items
+
+  const shortTitleRatio =
+    items.filter((it) => (it.title || "").trim().length <= 8).length /
+    items.length
+  // 全是极短标题时，跳过 AI，防误并
+  if (shortTitleRatio > 0.7) {
+    return items.map((it) => ({
+      ...it,
+      cluster_key: `${it.title}||${dateBucket(it.date)}`,
+    }))
+  }
+
   console.log(`🤖 正在请求 AI 进行语义去重（处理 ${items.length} 条数据）...`)
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   const prompt = `
@@ -110,11 +129,15 @@ async function clusterNewsByAI(items: any[]) {
     const mappings = Array.isArray(result) ? result : result.clusters || []
     return items.map((it, idx) => {
       const match = mappings.find((m: any) => m.idx === idx)
-      return { ...it, cluster_key: match ? match.cluster_key : it.title }
+      const baseKey = match && match.cluster_key ? match.cluster_key : it.title
+      return { ...it, cluster_key: `${baseKey}||${dateBucket(it.date)}` }
     })
   } catch (err) {
     console.error("❌ AI 聚类失败，回退到标题去重:", err)
-    return items.map((it) => ({ ...it, cluster_key: it.title }))
+    return items.map((it) => ({
+      ...it,
+      cluster_key: `${it.title}||${dateBucket(it.date)}`,
+    }))
   }
 }
 
@@ -156,6 +179,7 @@ async function run() {
         link: it.link,
         source: it.source || group.sourceId,
         date: it.date,
+        content: (it as any).content,
       })),
     )
 
@@ -217,6 +241,7 @@ async function testHtml(config: HtmlScraperConfig, opts: ScrapeOptions) {
       dateISO: it.date ? it.date.toISOString() : undefined,
       date: it.date,
       source: it.source,
+      content: (it as any).content,
     })),
   })
 }
@@ -254,6 +279,7 @@ async function testRss(config: RssScraperConfig, _opts: ScrapeOptions) {
         ? new Date(it.pubDate)
         : undefined,
       source: config.id,
+      content: (it as any).content,
     }))
     // 🚨 恢复详情打印
     console.dir(mappedItems.slice(0, show), { depth: null })
@@ -278,7 +304,7 @@ async function testRcmp(opts: ScrapeOptions) {
   aggregated.push({
     sourceId: "rcmp-nb",
     name: "RCMP NB",
-    items: items.map((it) => ({ ...it, source: it.source })),
+    items: items.map((it) => ({ ...it, source: it.source, content: (it as any).content })),
   })
 }
 
@@ -294,7 +320,7 @@ async function testSaintAndrews(opts: ScrapeOptions) {
   aggregated.push({
     sourceId: "town-saint-andrews",
     name: "Saint Andrews",
-    items: items.map((it) => ({ ...it, source: it.source })),
+    items: items.map((it) => ({ ...it, source: it.source, content: (it as any).content })),
   })
 }
 

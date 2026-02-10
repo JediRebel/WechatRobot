@@ -1,4 +1,4 @@
-# !/bin/bash
+#!/bin/bash
 
 export NPM_CONFIG_LOGLEVEL=error
 # Daily wrapper: enter project, log, run full pipeline

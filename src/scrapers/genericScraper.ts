@@ -23,6 +23,7 @@ import type {
   ScrapeOptions,
   RawNewsRow as RawRow,
 } from '../utils/types';
+import { normalizeUrl } from '../utils/db';
 
 // ===== 仅在本文件使用的输出接口 =====
 export interface FinalItem {
@@ -169,7 +170,7 @@ function dedupeByLink(rows: RawRow[]): RawRow[] {
   const seenLink = new Set<string>();
   const seenTitle = new Set<string>();
   return rows.filter((r) => {
-    const lKey = (r.link || '').toLowerCase();
+    const lKey = normalizeUrl(r.link || '');
     const tKey = (r.title || '').trim().toLowerCase();
     if (!lKey || !tKey) return false;
     

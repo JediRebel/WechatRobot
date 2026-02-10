@@ -646,6 +646,8 @@ export const SCRAPER_CONFIGS: AnyScraperConfig[] = [
       link: 'h2.entry-title a, h2 a',
       // 列表页通常显示日期，如 "Jan 30, 2026"
       date: '.published, .post-meta time',
+      // 详情页正文（Elementor 渲染的主体，避免抓到侧栏列表）
+      content: '.elementor-widget-theme-post-content .elementor-widget-container',
     },
     // 确保只抓取媒体通稿，排除杂项
     linkIncludes: ['/media-release/'],

@@ -8,6 +8,8 @@ import axios from "axios"
 import { addDraft, sendAll, sendPreview } from "../src/wechat/wechat-mp-service"
 import { wechatMpClient } from "../src/wechat/mp-client"
 import { updateNewsStatus } from "../src/utils/db" // [新增] 引入数据库更新函数
+import * as cheerio from "cheerio"
+import { URL } from "url"
 
 const argv = minimist(process.argv.slice(2), {
   boolean: ["long", "prod", "preview"],
@@ -41,7 +43,56 @@ function extractUrls(content: string): string[] {
   return matches ? Array.from(new Set(matches)) : []
 }
 
-function buildArticle(content: string, isLong: boolean, thumbMediaId: string) {
+async function fetchFirstImage(originalUrl: string): Promise<string | undefined> {
+  try {
+    const { data: html } = await axios.get(originalUrl, {
+      timeout: 15000,
+      responseType: "text",
+    })
+    const $ = cheerio.load(html)
+
+    const pick = (sel: string, attr: string) => $(sel).attr(attr)
+    const meta =
+      pick('meta[property="og:image"]', "content") ||
+      pick('meta[name="twitter:image"]', "content") ||
+      pick('meta[name="image"]', "content")
+    if (meta) return new URL(meta, originalUrl).toString()
+
+    const firstImg = $("img")
+      .map((_i, el) => $(el).attr("src"))
+      .get()
+      .find((src) => src && !src.startsWith("data:"))
+    if (firstImg) return new URL(firstImg, originalUrl).toString()
+  } catch (e) {
+    // 静默跳过
+  }
+  return undefined
+}
+
+async function uploadContentImage(imgUrl: string): Promise<string | undefined> {
+  try {
+    const imgResp = await axios.get<ArrayBuffer>(imgUrl, {
+      responseType: "arraybuffer",
+      timeout: 20000,
+    })
+    const buf = Buffer.from(imgResp.data)
+    const accessToken = await wechatMpClient.getAccessToken()
+    const url = `https://api.weixin.qq.com/cgi-bin/media/uploadimg?access_token=${accessToken}`
+    const form = new FormData()
+    const filename = imgUrl.split("/").pop() || "image.jpg"
+    form.append("media", buf, { filename })
+    const resp = await axios.post(url, form, {
+      headers: form.getHeaders(),
+      timeout: 20000,
+    })
+    if (resp.data && resp.data.url) return resp.data.url as string
+  } catch (e) {
+    // 静默跳过
+  }
+  return undefined
+}
+
+async function buildArticle(content: string, isLong: boolean, thumbMediaId: string) {
   const today = new Date().toISOString().slice(0, 10)
   const title = isLong ? `NB省本地每日资讯 ${today}` : `本地要闻 ${today}`
 
@@ -63,13 +114,14 @@ function buildArticle(content: string, isLong: boolean, thumbMediaId: string) {
     .map((e) => e.trim())
     .filter(Boolean)
 
-  const bodyHtml = entries
-    .map((entry) => {
-      // 🔍 正则匹配标题和正文标签
-      const titleRegex = /(?:\*\*|\[)TITLE_START(?:\]|\*\*)\s*([^]*?)\s*(?:\*\*|\[)TITLE_END(?:\]|\*\*)/i
-      const bodyRegex = /(?:\*\*|\[)BODY_START(?:\]|\*\*)\s*([^]*?)\s*(?:\*\*|\[)BODY_END(?:\]|\*\*)/i
+  const bodyHtml = (
+    await Promise.all(
+      entries.map(async (entry) => {
+        // 🔍 正则匹配标题和正文标签
+        const titleRegex = /(?:\*\*|\[)TITLE_START(?:\]|\*\*)\s*([^]*?)\s*(?:\*\*|\[)TITLE_END(?:\]|\*\*)/i
+        const bodyRegex = /(?:\*\*|\[)BODY_START(?:\]|\*\*)\s*([^]*?)\s*(?:\*\*|\[)BODY_END(?:\]|\*\*)/i
 
-      const titleMatch = entry.match(titleRegex)
+        const titleMatch = entry.match(titleRegex)
       const bodyMatch = entry.match(bodyRegex)
       const urlMatch = entry.match(/https?:\/\/[^\s\)\]]+/)
 
@@ -104,25 +156,41 @@ function buildArticle(content: string, isLong: boolean, thumbMediaId: string) {
         )
         .join("")
 
-      const linkHtml = actualUrl
-        ? `
+        let imageBlock = ""
+        if (actualUrl) {
+          const firstImg = await fetchFirstImage(actualUrl)
+          if (firstImg) {
+            const wxImg = await uploadContentImage(firstImg)
+            if (wxImg) {
+              imageBlock = `
+        <p style="margin: 0 0 18px 0; text-align: center;">
+          <img src="${wxImg}" alt="news image" style="max-width: 100%; border-radius: 8px; display: inline-block;" />
+        </p>`
+            }
+          }
+        }
+
+        const linkHtml = actualUrl
+          ? `
       <div style="margin-top: 20px; padding: 12px; background: #fdfdfd; border: 1px dashed #ccc; border-radius: 6px;">
         <p style="font-size: 13px; color: #999; margin: 0;">原文链接（复制查看）：</p>
         <p style="font-size: 12px; color: #576b95; word-break: break-all; margin-top: 5px;">${actualUrl}</p>
       </div>`
-        : ""
+          : ""
 
-      return `
+        return `
       <section style="margin-bottom: 45px; padding-bottom: 25px; border-bottom: 1px solid #f0f0f0;">
         <h3 style="font-size: 20px; font-weight: bold; color: #000; margin-bottom: 18px; border-left: 5px solid #07c160; padding-left: 12px; line-height: 1.4;">
           ${newsTitle}
         </h3>
+        ${imageBlock}
         ${paragraphs}
         ${linkHtml}
       </section>
     `
-    })
-    .join("\n")
+      }),
+    )
+  ).join("\n")
 
   return {
     title,
@@ -153,7 +221,7 @@ async function main() {
   try {
     const thumbMediaId = await uploadPermanentImage(coverPath)
     console.log(`🚀 正在为${isLong ? "【长篇】" : "【短篇】"}创建草稿...`)
-    const article = buildArticle(content, isLong, thumbMediaId)
+    const article = await buildArticle(content, isLong, thumbMediaId)
     const mediaId = await addDraft([article])
     console.log(`✅ 草稿已创建: ${mediaId}`)
 

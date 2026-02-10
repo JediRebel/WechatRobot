@@ -9,6 +9,48 @@ const dbPath = path.join(dbDir, "news.db")
 let dbInstance: any = null
 let SQL: any = null
 
+/**
+ * 统一 URL 归一化：
+ * - 小写协议/主机
+ * - 去掉尾部斜杠（根路径除外）
+ * - 移除常见追踪参数（utm_*, fbclid 等）
+ * - 失败时返回原始输入
+ */
+export function normalizeUrl(raw: string | undefined | null): string {
+  if (!raw) return ""
+  try {
+    const u = new URL(raw)
+    u.protocol = u.protocol.toLowerCase()
+    u.hostname = u.hostname.toLowerCase()
+
+    // 去除常见追踪参数
+    const toDrop = [
+      /^utm_/i,
+      /^fbclid$/i,
+      /^gclid$/i,
+      /^mc_cid$/i,
+      /^mc_eid$/i,
+      /^oref$/i,
+      /^cmpid$/i,
+      /^_ga$/i,
+    ]
+    const params = u.searchParams
+    for (const key of Array.from(params.keys())) {
+      if (toDrop.some((r) => r.test(key))) params.delete(key)
+    }
+    // 重新写回 search
+    u.search = params.toString()
+
+    // 去掉尾部斜杠（但保留根路径）
+    if (u.pathname.endsWith("/") && u.pathname !== "/") {
+      u.pathname = u.pathname.replace(/\/+$/, "")
+    }
+    return u.toString()
+  } catch (_e) {
+    return raw
+  }
+}
+
 async function getDb() {
   if (dbInstance) return dbInstance
   if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true })
@@ -28,11 +70,20 @@ async function getDb() {
       title TEXT,
       source_id TEXT,
       publish_date TEXT,
+      content TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       status INTEGER DEFAULT 0,
       cluster_key TEXT
     )
   `)
+
+  // 确保向后兼容：老库可能没有 content 列，这里补齐
+  const columns = dbInstance
+    .exec(`PRAGMA table_info(news_items)`)
+    ?.at(0)?.values?.map((row: any[]) => row[1]) // [cid, name, type...]
+  if (columns && !columns.includes("content")) {
+    dbInstance.run(`ALTER TABLE news_items ADD COLUMN content TEXT`)
+  }
   return dbInstance
 }
 
@@ -44,7 +95,7 @@ function persist(db: any) {
 
 /**
  * 批量保存抓取到的新闻条目
- * 增强：支持 cluster_key 语义去重，并自动继承已发布状态
+ * 说明：所有新记录统一以未发布状态写入，发布状态由后续流程更新
  */
 export async function saveNewsItems(
   items: Array<{
@@ -52,29 +103,28 @@ export async function saveNewsItems(
     link: string
     source: string
     date?: Date
+    content?: string
     cluster_key?: string
   }>,
 ) {
   const db = await getDb()
 
-  // 💡 插入逻辑：通过 cluster_key 检查是否已有相同事件被标记为已处理 (status=1)
   const stmt = db.prepare(`
-    INSERT OR IGNORE INTO news_items (url, title, source_id, publish_date, cluster_key, status) 
-    VALUES (?, ?, ?, ?, ?, 
-      COALESCE((SELECT status FROM news_items WHERE cluster_key = ? AND status = 1 LIMIT 1), 0)
-    )
+    INSERT OR IGNORE INTO news_items (url, title, source_id, publish_date, content, cluster_key, status) 
+    VALUES (?, ?, ?, ?, ?, ?, 0)
   `)
 
   for (const it of items) {
     try {
       const ck = it.cluster_key || it.title
+      const normalizedLink = normalizeUrl(it.link)
       stmt.run([
-        it.link,
+        normalizedLink,
         it.title,
         it.source,
         it.date ? it.date.toISOString() : null,
+        it.content ?? null,
         ck,
-        ck, // 对应子查询中的 cluster_key = ?
       ])
     } catch (err) {
       console.error(`❌ DB Insert Error [${it.title}]:`, err)
@@ -93,30 +143,73 @@ export async function updateNewsStatus(urls: string[], status: number) {
   if (urls.length === 0) return
   const db = await getDb()
 
-  const stmtUrl = db.prepare("UPDATE news_items SET status = ? WHERE url = ?")
-  const stmtCluster = db.prepare(`
-    UPDATE news_items SET status = ? 
-    WHERE cluster_key IN (SELECT cluster_key FROM news_items WHERE url = ?)
-  `)
+  // 1) 归一化去重
+  const normUrls = Array.from(
+    new Set(urls.map((u) => normalizeUrl(u)).filter(Boolean)),
+  )
+  if (normUrls.length === 0) return
 
-  for (const url of urls) {
+  // 2) 查找对应簇
+  const placeholders = normUrls.map(() => "?").join(",")
+  const clusterStmt = db.prepare(
+    `SELECT DISTINCT cluster_key FROM news_items WHERE url IN (${placeholders})`,
+  )
+  const clusterKeys: string[] = []
+  try {
+    clusterStmt.bind(normUrls)
+    while (clusterStmt.step()) {
+      const row = clusterStmt.getAsObject() as any
+      if (row.cluster_key) clusterKeys.push(row.cluster_key)
+    }
+  } catch (err) {
+    console.error("❌ 查询 cluster_key 失败:", err)
+  } finally {
+    clusterStmt.free()
+  }
+
+  // 3) 按 URL 更新
+  let affected = 0
+  const updateByUrl = db.prepare(
+    `UPDATE news_items SET status = ? WHERE url IN (${placeholders})`,
+  )
+  try {
+    updateByUrl.run([status, ...normUrls])
+    affected += db.getRowsModified?.() ?? 0
+  } catch (err) {
+    console.error("❌ 按 URL 更新状态失败:", err)
+  } finally {
+    updateByUrl.free()
+  }
+
+  // 4) 按簇更新（防止 URL 不同但同簇的记录漏标记）
+  if (clusterKeys.length > 0) {
+    const ckPlaceholders = clusterKeys.map(() => "?").join(",")
+    const updateByCluster = db.prepare(
+      `UPDATE news_items SET status = ? WHERE cluster_key IN (${ckPlaceholders})`,
+    )
     try {
-      stmtCluster.run([status, url])
-      stmtUrl.run([status, url])
+      updateByCluster.run([status, ...clusterKeys])
+      affected += db.getRowsModified?.() ?? 0
     } catch (err) {
-      console.error(`❌ 更新状态失败 [${url}]:`, err)
+      console.error("❌ 按 cluster_key 更新状态失败:", err)
+    } finally {
+      updateByCluster.free()
     }
   }
 
-  stmtUrl.free()
-  stmtCluster.free()
+  if (affected === 0) {
+    console.warn(
+      `⚠️ 状态更新未命中任何行，可能是链接未被归一化匹配或尚未入库。urls=${normUrls.join(",")}`,
+    )
+  }
+
   persist(db)
 }
 
 export async function getUnprocessedNews(): Promise<any[]> {
   const db = await getDb()
   const res = db.exec(
-    "SELECT url as link, title, source_id as source, publish_date as date FROM news_items WHERE status = 0 ORDER BY publish_date DESC",
+    "SELECT url as link, title, source_id as source, publish_date as date, content FROM news_items WHERE status = 0 ORDER BY publish_date DESC",
   )
 
   if (res.length === 0) return []

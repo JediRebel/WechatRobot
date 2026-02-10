@@ -6,7 +6,7 @@ import fs from "fs"
 import minimist from "minimist"
 
 const argv = minimist(process.argv.slice(2), {
-  boolean: ["long", "prod", "preview"],
+  boolean: ["long", "prod", "preview", "fetch"],
   string: ["model", "maxTokens", "windowHours", "previewOpenid"],
   alias: { l: "long", p: "prod" },
   default: {
@@ -27,6 +27,7 @@ async function main() {
 
   const isLongMode = argv.long === true
   const isProd = argv.prod === true // 🚨 记录生产模式状态
+  const enableFetch = isLongMode || argv.fetch === true
 
   console.log(
     `\n模式确认: ${
@@ -73,11 +74,17 @@ async function main() {
 
   // 2. 抓取逻辑
   const windowHours = argv.windowHours || 24
-  // 🚨 传递 --prod 参数给 fetch-all.ts
-  run(
-    `npx ts-node -r tsconfig-paths/register -r dotenv/config scripts/fetch-all.ts ` +
-      `--windowHours ${windowHours} --show 999 ${isProd ? "--prod" : ""}`,
-  )
+  if (enableFetch) {
+    // 🚨 传递 --prod 参数给 fetch-all.ts
+    run(
+      `npx ts-node -r tsconfig-paths/register -r dotenv/config scripts/fetch-all.ts ` +
+        `--windowHours ${windowHours} --show 999 ${isProd ? "--prod" : ""}`,
+    )
+  } else {
+    console.log(
+      "\n⏭️  已跳过抓取步骤（短篇默认不抓取）。如需强制抓取，请加 --fetch 或使用 run:long。",
+    )
+  }
 
   // 3. 总结逻辑
   const summaryScript = isLongMode
@@ -90,14 +97,24 @@ async function main() {
     ? `--maxTokens ${argv.maxTokens}`
     : `--maxTokens ${defaultMaxTokens}`
   const testJsonPath = path.join("out", "latest-fetch-test.json")
+
+  // 测试环境下，强制让总结脚本直接消费最新抓取的本地 JSON，避免读库导致数据陈旧
+  const inputArg =
+    !isProd && fs.existsSync(testJsonPath)
+      ? `--input "${testJsonPath}"`
+      : ""
+  const skipSnapshotArg = !isProd ? "--skipSnapshot" : ""
+  if (!isProd && !fs.existsSync(testJsonPath)) {
+    console.warn(
+      `⚠️ 测试模式未找到本地抓取文件: ${testJsonPath}，将回退读取数据库。`,
+    )
+  }
   console.log(`\n✍️ 开始生成总结文案...`)
   try {
     // 🚨 关键改动：如果是测试模式且抓取文件存在，则透传 --input
-    const inputArg =
-      !isProd && fs.existsSync(testJsonPath) ? `--input "${testJsonPath}"` : ""
     run(
       `npx ts-node -r dotenv/config scripts/${summaryScript} ` +
-        `--output "${postPath}" ${modelArg} ${maxTokensArg} ${inputArg}`,
+        `--output "${postPath}" ${modelArg} ${maxTokensArg} ${inputArg} ${skipSnapshotArg}`,
     )
   } catch (err) {
     if (!fs.existsSync(postPath)) {
